@@ -12,8 +12,6 @@
   },
   "require": {
     "drupal/commerce": "~2.4",
-    "drupal/search_api": "~1.0",
-    "drupal/commerce_authnet": "^1.0@RC",
     "lalitkaushik/paymetric": "master"
   }
 }
