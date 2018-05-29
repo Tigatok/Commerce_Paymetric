@@ -1,15 +1,13 @@
 <?php
 namespace Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway;
 
-// Supporting Libraries
-use Drupal\commerce_paymetric\lib\XiPaySoapClient;
-use Drupal\commerce_paymetric\lib\PaymetricTransaction;
+use Paymetric\XiPaySoapClient;
+use Paymetric\PaymetricTransaction;
 
 use Drupal\commerce_payment\CreditCard; // Required for base class
 use Drupal\commerce_payment\Entity\PaymentInterface; // Required for base class
 use Drupal\commerce_payment\Entity\PaymentMethodInterface; // Required for base class
 use Drupal\commerce_payment\Exception\HardDeclineException; // Required for base class
-use Drupal\commerce_payment\Exception\InvalidRequestException;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager; // Required for base class
 use Drupal\commerce_payment\PaymentTypeManager; // Required for base class
@@ -21,28 +19,10 @@ use Drupal\Core\Entity\EntityTypeManagerInterface; // Required for base class
 use Drupal\Core\Form\FormStateInterface; // Required for base class
 use GuzzleHttp\ClientInterface;
 
-// Commerce Guys Libraries for Authorize.net
-use CommerceGuys\AuthNet\Configuration;
-use CommerceGuys\AuthNet\CreateCustomerPaymentProfileRequest;
-use CommerceGuys\AuthNet\CreateCustomerProfileRequest;
-use CommerceGuys\AuthNet\CreateTransactionRequest;
-use CommerceGuys\AuthNet\DataTypes\BillTo;
-use CommerceGuys\AuthNet\DataTypes\CreditCard as CreditCardDataType;
-use CommerceGuys\AuthNet\DataTypes\MerchantAuthentication;
-use CommerceGuys\AuthNet\DataTypes\Order as OrderDataType;
-use CommerceGuys\AuthNet\DataTypes\OpaqueData;
-use CommerceGuys\AuthNet\DataTypes\PaymentProfile;
-use CommerceGuys\AuthNet\DataTypes\Profile;
-use CommerceGuys\AuthNet\DataTypes\TransactionRequest;
-use CommerceGuys\AuthNet\DeleteCustomerPaymentProfileRequest;
-use CommerceGuys\AuthNet\Request\XmlRequest;
-
-use Psr\Log\LoggerInterface;
 use GuzzleHttp\Exception\RequestException;
-use InvalidArgumentException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-
+// @todo remove this v
 /**
 ALL SUPPORTING LIBRARIES LOADED
 --------------------------------------
@@ -88,21 +68,16 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
 
   /**
    * Paymetric test API URL.
+   * @todo change this.
    */
   const PAYMETRIC_API_TEST_URL = 'https://test.authorize.net/gateway/transact.dll';
 
   /**
    * Paymetric production API URL.
+   * @todo change this.
    */
   const PAYMETRIC_API_URL = 'https://secure2.authorize.net/gateway/transact.dll';
 
-  /**
-   * The Authorize.net API configuration.
-   *
-   * @var \CommerceGuys\AuthNet\Configuration
-   */
-  //protected $authnetConfiguration;
-  
    /**
    * The HTTP client.
    *
@@ -120,12 +95,11 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
   /**
    * {@inheritdoc}
    */
-  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time, ClientInterface $client, RounderInterface $rounder, LoggerInterface $logger) {
+  public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time, ClientInterface $client, RounderInterface $rounder) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $payment_type_manager, $payment_method_type_manager, $time);
 
     $this->httpClient = $client;
     $this->rounder = $rounder;
-    $this->logger = $logger;
   }
 
   /**
@@ -141,8 +115,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
       $container->get('plugin.manager.commerce_payment_method_type'),
       $container->get('datetime.time'),
       $container->get('http_client'),
-      $container->get('commerce_price.rounder'),
-      $container->get('commerce_authnet.logger')
+      $container->get('commerce_price.rounder')
     );
   }
 
@@ -159,6 +132,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
       'xiintercept_url' => '',
       'xipay_merchantid' => '',
       'credit_card_types' => '',
+        // @todo remove this.
       'transaction_type' => TransactionRequest::AUTH_CAPTURE,
     ] + parent::defaultConfiguration();
   }
@@ -237,6 +211,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
       '#description' => t('The default will be used to process transactions during checkout.'),
       '#default_value' => $this->configuration['transaction_type'],
       '#options' => [
+        // @todo remove these.
         TransactionRequest::AUTH_ONLY => $this->t('Authorization only (requires manual or automated capture after checkout)'),
         TransactionRequest::AUTH_CAPTURE => $this->t('Authorization and capture'),
         // @todo AUTH_ONLY but causes capture at placed transition.
@@ -384,16 +359,18 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
   }
 
 
-   
-    
-   /** 
-   The createPayment method is called when the 'Pay and complete purchase' button has been clicked on the final page of the checkout process (i.e. the 'Review' page). If $capture is TRUE, a sale transaction should be run; if FALSE, an authorize only transaction should be run.
+
+
+  /**
+   * @todo wrap this up.
+   * {@inheritdoc}
+   *The createPayment method is called when the 'Pay and complete purchase' button has been clicked on the final page of the checkout process (i.e. the 'Review' page). If $capture is TRUE, a sale transaction should be run; if FALSE, an authorize only transaction should be run.
    */
   public function createPayment(PaymentInterface $payment, $capture = TRUE) {
     $this->assertPaymentState($payment, ['new']);
     $payment_method = $payment->getPaymentMethod();
     $this->assertPaymentMethod($payment_method);
-      
+
     $order = $payment->getOrder();
     $owner = $payment_method->getOwner();
 
@@ -406,37 +383,11 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
       }
     }*/
 
-    
-      
-      
-    // COMMERCE GUYS: 
+    // COMMERCE GUYS:
     // Perform the create payment request here, throw an exception if it fails.
     // See \Drupal\commerce_payment\Exception for the available exceptions.
     // Remember to take into account $capture when performing the request.
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-    
+
     $amount = $payment->getAmount();
     $payment_method_token = $payment_method->getRemoteId();
     // The remote ID returned by the request.
@@ -451,14 +402,15 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     $payment->setRemoteId($remote_id);
     $payment->save();
   }
-    
-    
-    
+
+
+
 
   /**
-  /*
-    Previously authorized transactions are captured and moved to the current batch for settlement in this method.
-  */
+   * @todo wrap this up.
+   * {@inheritdoc}
+   * Previously authorized transactions are captured and moved to the current batch for settlement in this method.
+   */
   public function capturePayment(PaymentInterface $payment, Price $amount = NULL) {
     $this->assertPaymentState($payment, ['authorization']);
     // If not specified, capture the entire amount.
@@ -467,33 +419,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     // COMMERCE GUYS: 
     // Perform the capture request here, throw an exception if it fails.
     // See \Drupal\commerce_payment\Exception for the available exceptions.
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-    
-      
-      
-    
+
     $remote_id = $payment->getRemoteId();
     $number = $amount->getNumber();
 
@@ -503,40 +429,17 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
   }
 
   /**
-  The voidPayment method could also be called delete payment. It is called when the 'Delete' operations button is clicked on a specific payment on the payments page. It will void a transaction that was previously authorized but has not been settled.
-  */
+   * @todo Wrap this up.
+   * {@inheritdoc}
+   * The voidPayment method could also be called delete payment. It is called when the 'Delete' operations button is clicked on a specific payment on the payments page. It will void a transaction that was previously authorized but has not been settled.
+   */
   public function voidPayment(PaymentInterface $payment) {
     $this->assertPaymentState($payment, ['authorization']);
-    
+
     // COMMERCE GUYS:
     // Perform the void request here, throw an exception if it fails.
     // See \Drupal\commerce_payment\Exception for the available exceptions.
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-      
-      
-      
+
     $remote_id = $payment->getRemoteId();
 
     $payment->setState('authorization_voided');
@@ -544,8 +447,10 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
   }
 
   /**
-  The refundPayment method is called from the 'Payments' tab of an order when the 'Refund' operations button is click on a payment. This method serves to refund all or part of a sale.
-  */
+   * @todo wrap this up.
+   * {@inheritdoc}
+  * The refundPayment method is called from the 'Payments' tab of an order when the 'Refund' operations button is click on a payment. This method serves to refund all or part of a sale.
+   */
   public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
     $this->assertPaymentState($payment, ['completed', 'partially_refunded']);
     // If not specified, refund the entire amount.
@@ -555,31 +460,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     // COMMERCE GUYS: 
     // Perform the refund request here, throw an exception if it fails.
     // See \Drupal\commerce_payment\Exception for the available exceptions.
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-      
-    
+
     $remote_id = $payment->getRemoteId();
     $number = $amount->getNumber();
 
@@ -597,6 +478,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
   }
 
   /**
+   * @todo wrap this up.
    * {@inheritdoc}
    */
   public function createPaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
@@ -604,11 +486,11 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     //echo "Create Payment Method called. Merchant ID: ".$MID;
     //print_r($payment_details);
     //Array ( [type] => mastercard [number] => 5424000000000015 [expiration] => Array ( [month] => 05 [divider] => [year] => 2021 ) [security_code] => 000 )
-    
-      
-      
-    
-      
+
+
+
+
+
     /*$required_keys = [
       // The expected keys are payment gateway specific and usually match
       // the PaymentMethodAddForm form elements. They are expected to be valid.
@@ -628,30 +510,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
       // If $customer_id is empty, create the customer remotely and then do
       // $this->setRemoteCustomerId($owner, $customer_id);
       // $owner->save();
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-         
+
     }
 
     // COMMERCE GUYS: 
@@ -661,32 +520,7 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     // payment method is reusable: $payment_method->isReusable().
     // Non-reusable payment methods usually have an expiration timestamp.
     try {
-     
-      
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-     
+
       /* TESTED SOAP REQUEST AND IT WORKS!
       $address = $payment_method->getBillingProfile()->get('address')->first();
         
@@ -707,76 +541,49 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
         'billtozip' => $address->getPostalCode(),
         'billtocountry' => $address->getCountryCode(),
       ]);*/
-        
-        
+
+
       /*if ($data['result'] !== '0') {
         throw new HardDeclineException("Unable to verify the credit card: " . $data['respmsg'], $data['result']);
       }*/
-      
 
-        $payment_method->card_type = $payment_details['type'];
-        // Only the last 4 numbers are safe to store.
-        $payment_method->card_number = substr($payment_details['number'], -4);
-        $payment_method->card_exp_month = $payment_details['expiration']['month'];
-        $payment_method->card_exp_year = $payment_details['expiration']['year'];
-        $expires = CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']);
-    // The remote ID returned by the request.
-        $remote_id = '789'; // TEST remote id
 
-        $payment_method
-            ->setRemoteId($remote_id)
-            ->setExpiresTime($expires)
-            ->save();
+      $payment_method->card_type = $payment_details['type'];
+      // Only the last 4 numbers are safe to store.
+      $payment_method->card_number = substr($payment_details['number'], -4);
+      $payment_method->card_exp_month = $payment_details['expiration']['month'];
+      $payment_method->card_exp_year = $payment_details['expiration']['year'];
+      $expires = CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']);
+      // The remote ID returned by the request.
+      $remote_id = '789'; // TEST remote id
+
+      $payment_method
+        ->setRemoteId($remote_id)
+        ->setExpiresTime($expires)
+        ->save();
     }
     catch (RequestException $e) {
       throw new HardDeclineException("Unable to store the credit card");
     }
-    
+
   }
 
   /**
-  The deletePaymentMethod deletes a stored payment method from an existing customer's record. It is called from the 'Payment methods' tab of a user's account. It should delete a saved payment method both on the Commerce site and in the gateway customer records.
-  */
+   * @todo wrap this up.
+   * {@inheritdoc}
+  * The deletePaymentMethod deletes a stored payment method from an existing customer's record. It is called from the 'Payment methods' tab of a user's account. It should delete a saved payment method both on the Commerce site and in the gateway customer records.
+   */
   public function deletePaymentMethod(PaymentMethodInterface $payment_method) {
     // COMMERCE GUYS: 
     // Delete the remote record here, throw an exception if it fails.
     // See \Drupal\commerce_payment\Exception for the available exceptions.
-/*
-               ::'.:                       
-            ''M;                       
-            """:;                       
-                M;.     .               
-       ...... ..M:'    MM;.             
-     ;MMMMMMMMMM:     :MMMM.           
-     MMMMMMMMMMMMM..  ;MMMM;.           
-     'MMMMMMMMMMMMMM;.MMM'MM;           
-      '"MMMMMMMMMMMMMMMMM 'MM;     ,. . 
-, ,:    ':MMMMMMMMMMMMMMM  'MM.   :;'"" 
-"'.:     :M:":MMMMMMMMMMM   'M; ,;:;;"" 
-'"'M;..;.;M'  ""MMMMMMMM:    'M.MMMM:"" 
-'"'  ""'""" ;.MMMMMMMM""      '"""'     
-         ,;MMMMMMM:""                   
-         'MMMMMMM;.;.                   
-            """'""""":M..               
-                      ,MM               
-                     ;MM:               
-                   ,;'MM'               
-                   ":"M:               
-                   ::::.  
-*/
-    
+
     // Delete the local entity.
     $payment_method->delete();
   }
-    
-    
-    
-    
-    
-    
-    
-/**** TEST FUNCTION ****/
-   /**
+
+  /**** TEST FUNCTION ****/
+  /**
    * Post a transaction to the Paymetric server and return the response.
    *
    * @param array $parameters
@@ -786,11 +593,11 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
    *   The response body data in array format.
    */
   protected function executeTransaction(array $parameters) {
-      
+
     //echo 'Execute Transaction v1: <br>';
     //print_r($parameters);
     //echo '<br> ACCNT: '.$parameters[acct];
-      
+
     $ini_array=array();
     $ini_array['XiPay-QA']['paymetric.xipay.url'] = $this->getXIURL();
     $ini_array['XiPay-QA']['paymetric.xipay.user'] = $this->getUser();
@@ -799,573 +606,481 @@ class Paymetric extends OnsitePaymentGatewayBase implements PaymetricInterface {
     $ini_array['Xiintercept-QA']['paymetric.xiintercept.GUID'] = $this->getXIGUID();
     $ini_array['Xiintercept-QA']['paymetric.xiintercept.PSK'] = $this->getXIPSK();
     $ini_array['Xiintercept-QA']['paymetric.xiintercept.url'] = $this->getXIIURL();
-          
-      $nvp = array();
-      // Add the default name-value pairs to the array.
-      // Evaluate if person is logged in or using guest checkout
-      $customer_email = $parameters['billtoemail'];
-      
-      
-      $nvp += array(
-        'x_card_code' => $parameters['cvv2'],
-        'x_card_datasource' => "E",
-        'x_exp_date' => $parameters['expdate'],
-        'x_address' => $parameters['billtostreet'],
-        'x_address2' => $parameters['billtostreet2'],
-        'x_city' => $parameters['billtocity'],
-        'x_country' => $parameters['billtocountry'],
-        'x_first_name' => $parameters['billtofirstname'],
-        'x_last_name' => $parameters['billtolastname'],
-        'x_state' => $parameters['billtostate'],
-        'x_zip' => $parameters['billtozip'],
-        'x_card_type' => "mastercard", //???
-        'x_total' => $parameters['amt'],
-        'x_card_num' => $parameters['acct'],
-        'x_card_present' => 0, //???
-        'x_currency_code' => "USD", //???
-        'x_email_customer' => $customer_email
-      );
-      
-      
-      $response = $this->authorize($ini_array, $nvp);
-      
-      
-      
-      echo $response;
-      sleep(180);
-      
-      //return $response;
-      
-      
+
+    $nvp = array();
+    // Add the default name-value pairs to the array.
+    // Evaluate if person is logged in or using guest checkout
+    $customer_email = $parameters['billtoemail'];
+
+
+    $nvp += array(
+      'x_card_code' => $parameters['cvv2'],
+      'x_card_datasource' => "E",
+      'x_exp_date' => $parameters['expdate'],
+      'x_address' => $parameters['billtostreet'],
+      'x_address2' => $parameters['billtostreet2'],
+      'x_city' => $parameters['billtocity'],
+      'x_country' => $parameters['billtocountry'],
+      'x_first_name' => $parameters['billtofirstname'],
+      'x_last_name' => $parameters['billtolastname'],
+      'x_state' => $parameters['billtostate'],
+      'x_zip' => $parameters['billtozip'],
+      'x_card_type' => "mastercard", //???
+      'x_total' => $parameters['amt'],
+      'x_card_num' => $parameters['acct'],
+      'x_card_present' => 0, //???
+      'x_currency_code' => "USD", //???
+      'x_email_customer' => $customer_email
+    );
+
+
+    $response = $this->authorize($ini_array, $nvp);
+
+
+
+    echo $response;
+    sleep(180);
+
+    //return $response;
+
+
   }
-/**** /TEST FUNCTION ****/
-    
-    
-    
-    
-    
-/**** REFACTORED FUNCTIONS FROM OLD MODULE ****/    
-    /** For authorization **/
-    function authorize($ini_array, $nvp)
-    {
-        //echo 'Authorize Function called!<br>';
-        //print_r($ini_array);
-        //print_r($nvp);
-        
-        
-        if ($ini_array == false){
-            $FileError = "Paymetric ini file not found. Please check the Paymetric directory.";
-            throw new PaymentGatewayException($FileError);
-        }
+  /**** /TEST FUNCTION ****/
 
-        $XiPay = new XiPaySoapClient( $ini_array['XiPay-QA']['paymetric.xipay.url'],
-                                  $ini_array['XiPay-QA']['paymetric.xipay.user'],
-                                  $ini_array['XiPay-QA']['paymetric.xipay.password']);
 
-        
-        $xipayTransaction = new PaymetricTransaction();
-        $grandTotal= 1; // Test value
-        //$grandTotal= $nvp['x_total'];
+  /**** REFACTORED FUNCTIONS FROM OLD MODULE ****/
+  /** For authorization **/
+  function authorize($ini_array, $nvp)
+  {
+    //echo 'Authorize Function called!<br>';
+    //print_r($ini_array);
+    //print_r($nvp);
 
-        $xipayTransaction->CardCVV2 = $nvp['x_card_code'];
-        $xipayTransaction->CardDataSource = $nvp['x_card_datasource'];
-        $xipayTransaction->CardExpirationDate = substr($nvp['x_exp_date'],0,2).'/'.substr($nvp['x_exp_date'],2); // format: month/year
-        $xipayTransaction->CardHolderAddress1 = $nvp['x_address'];
-        $xipayTransaction->CardHolderAddress2 = $nvp['x_address2'];
-        $xipayTransaction->CardHolderCity = $nvp['x_city'];
-        $xipayTransaction->CardHolderCountry = $nvp['x_country'];
-        $xipayTransaction->CardHolderName1 =  $nvp['x_first_name'];
-        $xipayTransaction->CardHolderName2 = $nvp['x_last_name'];
-        $xipayTransaction->CardHolderName =  $nvp['x_first_name']." ".$nvp['x_last_name'];
-        $xipayTransaction->CardHolderState = $nvp['x_state'];
-        $xipayTransaction->CardHolderZip = $nvp['x_zip'];
-        $xipayTransaction->CardType = ucfirst($nvp['x_card_type']);
 
-        $xipayTransaction->Amount = $grandTotal;
-        $xipayTransaction->CardNumber = $nvp['x_card_num'];
-        $xipayTransaction->CardPresent = $nvp['x_card_present'];
-        $xipayTransaction->CurrencyKey = $nvp['x_currency_code'];
-        $xipayTransaction->MerchantID = $ini_array['MerchantID']['paymetric.xipay.merchantid'];
-      
-        
-        // Print XT Request
-        //$XTReq = print_r($xipayTransaction); 
-        //$XTReq = print_r($ini_array);
-        //echo $XTReq;
-        //stdClass Object ( [CardCVV2] => 000 [CardDataSource] => E [CardExpirationDate] => 20/24-05 [CardHolderAddress1] => 101 Cherry Court [CardHolderAddress2] => Unit 1436 [CardHolderCity] => Waleska [CardHolderCountry] => US [CardHolderName1] => Robert [CardHolderName2] => Simmons [CardHolderName] => Robert Simmons [CardHolderState] => GA [CardHolderZip] => 30183 [CardType] => Master Card [Amount] => 0 [CardNumber] => 5424000000000015 [CardPresent] => 0 [CurrencyKey] => USD [MerchantID] => 334273210883 )
-        
-        
-        
-        $authResponse = $XiPay->Authorize($xipayTransaction);
-        echo "XTRes <pre>"; print_r($authResponse); echo "</pre>";
-
-        $transID = 0;
-        $authorized = '';
-        
-        if($authResponse->Status == STATUS_OK)	{
-            $authorized = $authResponse->Transaction;
-            echo "Transaction Authorized with STATUS_OK: <pre>"; print_r($authorized); echo "</pre>";
-            echo "Status Code: ".$authorized->StatusCode."<br>";
-
-            if($authorized->StatusCode != 100){
-                $ErrorMsg = "Error Message: " . $authResponse->Message;
-                $ErrorCode = " and Error Code: " . $authorized->StatusCode;
-                watchdog('commerce_paymetric', 'Paymetric authorize request @MSG: @CODE', array('@MSG' => $ErrorMsg, '@CODE' => $ErrorCode), WATCHDOG_DEBUG);
-            }
-            //else {
-                //$transID = $authorized->TransactionID;
-                //return $transID;
-            //}
-        }
-        
-        //return $authorized;
-        
+    if ($ini_array == false){
+      $FileError = "Paymetric ini file not found. Please check the Paymetric directory.";
+      throw new PaymentGatewayException($FileError);
     }
 
-    /**
-     * Submits an AIM API request to Authorize.Net.
-     *
-     * @paramx $payment_method
-     *   The payment method instance array associated with this API request.
-     */
-    function commerce_paymetric_aim_request($payment_method, $nvp = array()) {
-      // Get the API endpoint URL for the method's transaction mode.
-      //$url = commerce_paymetric_aim_server_url($payment_method['settings']['txn_mode']);
+    $XiPay = new XiPaySoapClient( $ini_array['XiPay-QA']['paymetric.xipay.url'],
+      $ini_array['XiPay-QA']['paymetric.xipay.user'],
+      $ini_array['XiPay-QA']['paymetric.xipay.password']);
 
-      $ini_array=array();
-      $ini_array['XiPay-QA']['paymetric.xipay.url'] = $payment_method['settings']['xipay_url'];
-      $ini_array['XiPay-QA']['paymetric.xipay.user'] = $payment_method['settings']['xipay_user'];
-      $ini_array['XiPay-QA']['paymetric.xipay.password'] = $payment_method['settings']['xipay_password'];
-      $ini_array['MerchantID']['paymetric.xipay.merchantid'] = $payment_method['settings']['xipay_merchantid'];
-      $ini_array['Xiintercept-QA']['paymetric.xiintercept.GUID'] = $payment_method['settings']['xiintercept_GUID'];
-      $ini_array['Xiintercept-QA']['paymetric.xiintercept.PSK'] = $payment_method['settings']['xiintercept_PSK'];
-      $ini_array['Xiintercept-QA']['paymetric.xiintercept.url'] = $payment_method['settings']['xiintercept_url'];
 
-      //echo "<pre>"; print_r($ini_array); echo "</pre>";
-      //echo "<pre>"; print_r($payment_method); echo "</pre>"; //exit;
-      //echo "<pre>"; print_r($nvp); echo "</pre>"; exit;
+    $xipayTransaction = new PaymetricTransaction();
+    $grandTotal= 1; // Test value
+    //$grandTotal= $nvp['x_total'];
 
-       // Add the default name-value pairs to the array.
-      $nvp += array(
-        'x_email_customer' => $nvp['x_email'],
-      );
+    $xipayTransaction->CardCVV2 = $nvp['x_card_code'];
+    $xipayTransaction->CardDataSource = $nvp['x_card_datasource'];
+    $xipayTransaction->CardExpirationDate = substr($nvp['x_exp_date'],0,2).'/'.substr($nvp['x_exp_date'],2); // format: month/year
+    $xipayTransaction->CardHolderAddress1 = $nvp['x_address'];
+    $xipayTransaction->CardHolderAddress2 = $nvp['x_address2'];
+    $xipayTransaction->CardHolderCity = $nvp['x_city'];
+    $xipayTransaction->CardHolderCountry = $nvp['x_country'];
+    $xipayTransaction->CardHolderName1 =  $nvp['x_first_name'];
+    $xipayTransaction->CardHolderName2 = $nvp['x_last_name'];
+    $xipayTransaction->CardHolderName =  $nvp['x_first_name']." ".$nvp['x_last_name'];
+    $xipayTransaction->CardHolderState = $nvp['x_state'];
+    $xipayTransaction->CardHolderZip = $nvp['x_zip'];
+    $xipayTransaction->CardType = ucfirst($nvp['x_card_type']);
 
-      $paymentType=$nvp['x_type'];
+    $xipayTransaction->Amount = $grandTotal;
+    $xipayTransaction->CardNumber = $nvp['x_card_num'];
+    $xipayTransaction->CardPresent = $nvp['x_card_present'];
+    $xipayTransaction->CurrencyKey = $nvp['x_currency_code'];
+    $xipayTransaction->MerchantID = $ini_array['MerchantID']['paymetric.xipay.merchantid'];
 
-      $response = authorize($ini_array, $nvp);
-        
-      return $response;
-    }
 
-    /**
-     * Returns the URL to the Authorize.Net AIM server determined by transaction mode.
-     * Not currenty used...commented out of commerce_paymetric_aim_request()
-     *
-     * @paramx $txn_mode
-     *   The transaction mode that relates to the live or test server.
-     *
-     * @returnx
-     *   The URL to use to submit requests to the Authorize.Net AIM server.
-     */
-    function commerce_paymetric_aim_server_url($txn_mode) {
-      switch ($txn_mode) {
-        case PAYMETRIC_TXN_MODE_LIVE:
-        case PAYMETRIC_TXN_MODE_LIVE_TEST:
-          return variable_get('commerce_paymetric_aim_server_url_live', 'https://secure2.authorize.net/gateway/transact.dll');
-        case PAYMETRIC_TXN_MODE_DEVELOPER:
-          return variable_get('commerce_paymetric_aim_server_url_dev', 'https://test.authorize.net/gateway/transact.dll');
+    // Print XT Request
+    //$XTReq = print_r($xipayTransaction);
+    //$XTReq = print_r($ini_array);
+    //echo $XTReq;
+    //stdClass Object ( [CardCVV2] => 000 [CardDataSource] => E [CardExpirationDate] => 20/24-05 [CardHolderAddress1] => 101 Cherry Court [CardHolderAddress2] => Unit 1436 [CardHolderCity] => Waleska [CardHolderCountry] => US [CardHolderName1] => Robert [CardHolderName2] => Simmons [CardHolderName] => Robert Simmons [CardHolderState] => GA [CardHolderZip] => 30183 [CardType] => Master Card [Amount] => 0 [CardNumber] => 5424000000000015 [CardPresent] => 0 [CurrencyKey] => USD [MerchantID] => 334273210883 )
+
+
+
+    $authResponse = $XiPay->Authorize($xipayTransaction);
+    echo "XTRes <pre>"; print_r($authResponse); echo "</pre>";
+
+    $transID = 0;
+    $authorized = '';
+
+    if($authResponse->Status == STATUS_OK)	{
+      $authorized = $authResponse->Transaction;
+      echo "Transaction Authorized with STATUS_OK: <pre>"; print_r($authorized); echo "</pre>";
+      echo "Status Code: ".$authorized->StatusCode."<br>";
+
+      if($authorized->StatusCode != 100){
+        $ErrorMsg = "Error Message: " . $authResponse->Message;
+        $ErrorCode = " and Error Code: " . $authorized->StatusCode;
+        watchdog('commerce_paymetric', 'Paymetric authorize request @MSG: @CODE', array('@MSG' => $ErrorMsg, '@CODE' => $ErrorCode), WATCHDOG_DEBUG);
       }
+      //else {
+      //$transID = $authorized->TransactionID;
+      //return $transID;
+      //}
     }
-    
-    /**
-     * Submits a CIM XML API request to Authorize.Net.
-     *
-     * @paramx $payment_method
-     *   The payment method instance array associated with this API request.
-     * @paramx $request_type
-     *   The name of the request type to submit.
-     * @paramx $api_request_data
-     *   An associative array of data to be turned into a CIM XML API request.
-     */
-    function commerce_paymetric_cim_request($payment_method, $request_type, $api_request_data) {
-      // Get the API endpoint URL for the method's transaction mode.
-      $url = commerce_paymetric_cim_server_url($payment_method['settings']['txn_mode']);
 
-      // Add default data to the API request data array.
-      if (!isset($api_request_data['merchantAuthentication'])) {
-        $api_request_data = array(
+    //return $authorized;
+
+  }
+
+  /**
+   * Submits an AIM API request to Authorize.Net.
+   *
+   * @paramx $payment_method
+   *   The payment method instance array associated with this API request.
+   */
+  function commerce_paymetric_aim_request($payment_method, $nvp = array()) {
+    // Get the API endpoint URL for the method's transaction mode.
+    //$url = commerce_paymetric_aim_server_url($payment_method['settings']['txn_mode']);
+
+    $ini_array=array();
+    $ini_array['XiPay-QA']['paymetric.xipay.url'] = $payment_method['settings']['xipay_url'];
+    $ini_array['XiPay-QA']['paymetric.xipay.user'] = $payment_method['settings']['xipay_user'];
+    $ini_array['XiPay-QA']['paymetric.xipay.password'] = $payment_method['settings']['xipay_password'];
+    $ini_array['MerchantID']['paymetric.xipay.merchantid'] = $payment_method['settings']['xipay_merchantid'];
+    $ini_array['Xiintercept-QA']['paymetric.xiintercept.GUID'] = $payment_method['settings']['xiintercept_GUID'];
+    $ini_array['Xiintercept-QA']['paymetric.xiintercept.PSK'] = $payment_method['settings']['xiintercept_PSK'];
+    $ini_array['Xiintercept-QA']['paymetric.xiintercept.url'] = $payment_method['settings']['xiintercept_url'];
+
+    //echo "<pre>"; print_r($ini_array); echo "</pre>";
+    //echo "<pre>"; print_r($payment_method); echo "</pre>"; //exit;
+    //echo "<pre>"; print_r($nvp); echo "</pre>"; exit;
+
+    // Add the default name-value pairs to the array.
+    $nvp += array(
+      'x_email_customer' => $nvp['x_email'],
+    );
+
+    $paymentType=$nvp['x_type'];
+
+    $response = authorize($ini_array, $nvp);
+
+    return $response;
+  }
+
+  /**
+   * Returns the URL to the Authorize.Net AIM server determined by transaction mode.
+   * Not currenty used...commented out of commerce_paymetric_aim_request()
+   *
+   * @paramx $txn_mode
+   *   The transaction mode that relates to the live or test server.
+   *
+   * @returnx
+   *   The URL to use to submit requests to the Authorize.Net AIM server.
+   */
+  function commerce_paymetric_aim_server_url($txn_mode) {
+    switch ($txn_mode) {
+      case PAYMETRIC_TXN_MODE_LIVE:
+      case PAYMETRIC_TXN_MODE_LIVE_TEST:
+        return variable_get('commerce_paymetric_aim_server_url_live', 'https://secure2.authorize.net/gateway/transact.dll');
+      case PAYMETRIC_TXN_MODE_DEVELOPER:
+        return variable_get('commerce_paymetric_aim_server_url_dev', 'https://test.authorize.net/gateway/transact.dll');
+    }
+  }
+
+  /**
+   * Submits a CIM XML API request to Authorize.Net.
+   *
+   * @paramx $payment_method
+   *   The payment method instance array associated with this API request.
+   * @paramx $request_type
+   *   The name of the request type to submit.
+   * @paramx $api_request_data
+   *   An associative array of data to be turned into a CIM XML API request.
+   */
+  function commerce_paymetric_cim_request($payment_method, $request_type, $api_request_data) {
+    // Get the API endpoint URL for the method's transaction mode.
+    $url = commerce_paymetric_cim_server_url($payment_method['settings']['txn_mode']);
+
+    // Add default data to the API request data array.
+    if (!isset($api_request_data['merchantAuthentication'])) {
+      $api_request_data = array(
           'merchantAuthentication' => array(
             'name' => $payment_method['settings']['login'],
             'transactionKey' => $payment_method['settings']['tran_key'],
           ),
         ) + $api_request_data;
-      }
+    }
 
-      // Determine if it is necessary to add a validation mode to the API request.
-      $validation_mode = '';
+    // Determine if it is necessary to add a validation mode to the API request.
+    $validation_mode = '';
 
-      switch ($request_type) {
-        case 'createCustomerProfileRequest':
-          if (empty($api_request_data['profile']['paymentProfiles'])) {
-            $validation_mode = 'none';
-          }
-          else {
-            $validation_mode = $payment_method['settings']['txn_mode'] == PAYMETRIC_TXN_MODE_LIVE ? 'liveMode' : 'testMode';
-          }
-          break;
-
-        case 'createCustomerPaymentProfileRequest':
-        case 'updateCustomerPaymentProfileRequest':
-        case 'validateCustomerPaymentProfileRequest':
+    switch ($request_type) {
+      case 'createCustomerProfileRequest':
+        if (empty($api_request_data['profile']['paymentProfiles'])) {
+          $validation_mode = 'none';
+        }
+        else {
           $validation_mode = $payment_method['settings']['txn_mode'] == PAYMETRIC_TXN_MODE_LIVE ? 'liveMode' : 'testMode';
-          break;
-
-        default:
-          break;
-      }
-
-      // Add the validation mode now if one was found.
-      if (!empty($validation_mode)) {
-        $api_request_data['validationMode'] = $validation_mode;
-      }
-
-      // Build and populate the API request SimpleXML element.
-      $api_request_element = new SimpleXMLElement('<' . $request_type . '/>');
-      $api_request_element->addAttribute('xmlns', 'AnetApi/xml/v1/schema/AnetApiSchema.xsd');
-      commerce_simplexml_add_children($api_request_element, $api_request_data);
-
-      // Allow modules an opportunity to alter the request before it is sent.
-      drupal_alter('commerce_paymetric_cim_request', $api_request_element, $payment_method, $request_type);
-
-      // Generate an XML string.
-      $xml = $api_request_element->asXML();
-
-      // Log the request if specified.
-      if ($payment_method['settings']['log']['request'] == 'request') {
-        // Mask the credit card number and CVV.
-        $log_element = clone($api_request_element);
-        $log_element->merchantAuthentication->name = str_repeat('X', strlen((string) $log_element->merchantAuthentication->name));
-        $log_element->merchantAuthentication->transactionKey = str_repeat('X', strlen((string) $log_element->merchantAuthentication->transactionKey));
-
-        if (!empty($log_element->profile->paymentProfiles->payment->creditCard->cardNumber)) {
-          $card_number = (string) $log_element->profile->paymentProfiles->payment->creditCard->cardNumber;
-          $log_element->profile->paymentProfiles->payment->creditCard->cardNumber = str_repeat('X', strlen($card_number) - 4) . substr($card_number, -4);
         }
+        break;
 
-        if (!empty($log_element->paymentProfile->payment->creditCard->cardNumber)) {
-          $card_number = (string) $log_element->paymentProfile->payment->creditCard->cardNumber;
-          $log_element->paymentProfile->payment->creditCard->cardNumber = str_repeat('X', strlen($card_number) - 4) . substr($card_number, -4);
-        }
+      case 'createCustomerPaymentProfileRequest':
+      case 'updateCustomerPaymentProfileRequest':
+      case 'validateCustomerPaymentProfileRequest':
+        $validation_mode = $payment_method['settings']['txn_mode'] == PAYMETRIC_TXN_MODE_LIVE ? 'liveMode' : 'testMode';
+        break;
 
-        if (!empty($log_element->profile->paymentProfiles->payment->creditCard->cardCode)) {
-          $log_element->profile->paymentProfiles->payment->creditCard->cardCode = str_repeat('X', strlen((string) $log_element->profile->paymentProfiles->payment->creditCard->cardCode));
-        }
-
-        if (!empty($log_element->paymentProfile->payment->creditCard->cardCode)) {
-          $log_element->paymentProfile->payment->creditCard->cardCode = str_repeat('X', strlen((string) $log_element->paymentProfile->payment->creditCard->cardCode));
-        }
-
-        watchdog('commerce_paymetric', 'Authorize.Net CIM @type to @url: @xml', array('@type' => $request_type, '@url' => $url, '@xml' => $log_element->asXML()), WATCHDOG_DEBUG);
-      }
-
-      // Build the array of header information for the request.
-      $header = array();
-      $header[] = 'Content-type: text/xml; charset=utf-8';
-
-      // Setup the cURL request.
-      $ch = curl_init();
-      curl_setopt($ch, CURLOPT_URL, $url);
-      curl_setopt($ch, CURLOPT_VERBOSE, 0);
-      curl_setopt($ch, CURLOPT_POST, 1);
-      curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
-      curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
-      curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
-      curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
-      curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
-      $result = curl_exec($ch);
-
-      // Log any errors to the watchdog.
-      if ($error = curl_error($ch)) {
-        watchdog('commerce_paymetric', 'cURL error: @error', array('@error' => $error), WATCHDOG_ERROR);
-        return FALSE;
-      }
-      curl_close($ch);
-
-      // If we received data back from the server...
-      if (!empty($result)) {
-        // Remove non-absolute XML namespaces to prevent SimpleXML warnings.
-        $result = str_replace(' xmlns="AnetApi/xml/v1/schema/AnetApiSchema.xsd"', '', $result);
-
-        // Extract the result into an XML response object.
-        $response = new SimpleXMLElement($result);
-
-        // Log the API response if specified.
-        if ($payment_method['settings']['log']['response'] == 'response') {
-          watchdog('commerce_paymetric', 'API response received:<pre>@xml</pre>', array('@xml' => $response->asXML()));
-        }
-
-        return $response;
-      }
-      else {
-        return FALSE;
-      }
-    }    
-    
-    
-    
-    
-    
-    
-
-    
-    
-    
-    
-    
-    
-
-/**** Drupal 7 Commerce Module Legacy Functions ****/
-    /**
-     * Returns the URL to the Authorize.Net CIM server determined by transaction mode.
-     *
-     * @paramx $txn_mode
-     *   The transaction mode that relates to the live or test server.
-     *
-     * @returnx
-     *   The URL to use to submit requests to the Authorize.Net CIM server.
-     */
-    function commerce_paymetric_cim_server_url($txn_mode) {
-      switch ($txn_mode) {
-        case PAYMETRIC_TXN_MODE_LIVE:
-        case PAYMETRIC_TXN_MODE_LIVE_TEST:
-          return variable_get('commerce_paymetric_cim_server_url_live', 'https://api2.authorize.net/xml/v1/request.api');
-        case PAYMETRIC_TXN_MODE_DEVELOPER:
-          return variable_get('commerce_paymetric_cim_server_url_dev', 'https://apitest.authorize.net/xml/v1/request.api');
-      }
-    }
-    
-     /**
-     * Returns the transaction type string for Authorize.Net that corresponds to the
-     *   Drupal Commerce constant.
-     *
-     * @param $txn_type
-     *   A Drupal Commerce transaction type constant.
-     */
-    function commerce_paymetric_txn_type($txn_type) {
-      switch ($txn_type) {
-        case COMMERCE_CREDIT_AUTH_ONLY:
-          return 'AUTH_ONLY';
-        case COMMERCE_CREDIT_PRIOR_AUTH_CAPTURE:
-          return 'PRIOR_AUTH_CAPTURE';
-        case COMMERCE_CREDIT_AUTH_CAPTURE:
-          return 'AUTH_CAPTURE';
-        case COMMERCE_CREDIT_CAPTURE_ONLY:
-          return 'CAPTURE_ONLY';
-        case COMMERCE_CREDIT_REFERENCE_SET:
-        case COMMERCE_CREDIT_REFERENCE_TXN:
-        case COMMERCE_CREDIT_REFERENCE_REMOVE:
-        case COMMERCE_CREDIT_REFERENCE_CREDIT:
-          return NULL;
-        case COMMERCE_CREDIT_CREDIT:
-          return 'CREDIT';
-        case COMMERCE_CREDIT_VOID:
-          return 'VOID';
-      }
+      default:
+        break;
     }
 
-    /**
-     * Returns the CIM transaction request type that correponds to a the Drupal
-     * Commerce constant.
-     *
-     * @param $txn_type
-     *   A Drupal Commerce transaction type constant.
-     */
-    function commerce_paymetric_cim_transaction_element_name($txn_type) {
-      switch ($txn_type) {
-        case COMMERCE_CREDIT_AUTH_ONLY:
-          return 'profileTransAuthOnly';
-        case COMMERCE_CREDIT_AUTH_CAPTURE:
-          return 'profileTransAuthCapture';
-        case COMMERCE_CREDIT_CAPTURE_ONLY:
-          return 'profileTransCaptureOnly';
-        case COMMERCE_CREDIT_PRIOR_AUTH_CAPTURE:
-          return 'profileTransPriorAuthCapture';
-        case COMMERCE_CREDIT_CREDIT:
-          return 'profileTransRefund';
-        case COMMERCE_CREDIT_VOID:
-          return 'profileTransVoid';
-        default:
-          return '';
-      }
-    }
-    
-    /**
-     * Returns the description of an Authorize.Net transaction type.
-     *
-     * @param $txn_type
-     *   An Authorize.Net transaction type string.
-     */
-    public function commerce_paymetric_reverse_txn_type($txn_type) {
-      switch (strtoupper($txn_type)) {
-        case 'AUTH_ONLY':
-          return t('Authorization only');
-        case 'PRIOR_AUTH_CAPTURE':
-          return t('Prior authorization capture');
-        case 'AUTH_CAPTURE':
-          return t('Authorization and capture');
-        case 'CAPTURE_ONLY':
-          return t('Capture only');
-        case 'CREDIT':
-          return t('Credit');
-        case 'VOID':
-          return t('Void');
-      }
+    // Add the validation mode now if one was found.
+    if (!empty($validation_mode)) {
+      $api_request_data['validationMode'] = $validation_mode;
     }
 
-    /**
-     * Returns the message text for an AVS response code.
-     */
-    public function commerce_paymetric_avs_response($code) {
-      switch ($code) {
-        case 'A':
-          return t('Address (Street) matches, ZIP does not');
-        case 'B':
-          return t('Address information not provided for AVS check');
-        case 'E':
-          return t('AVS error');
-        case 'G':
-          return t('Non-U.S. Card Issuing Bank');
-        case 'N':
-          return t('No Match on Address (Street) or ZIP');
-        case 'P':
-          return t('AVS not applicable for this transaction');
-        case 'R':
-          return t('Retry – System unavailable or timed out');
-        case 'S':
-          return t('Service not supported by issuer');
-        case 'U':
-          return t('Address information is unavailable');
-        case 'W':
-          return t('Nine digit ZIP matches, Address (Street) does not');
-        case 'X':
-          return t('Address (Street) and nine digit ZIP match');
-        case 'Y':
-          return t('Address (Street) and five digit ZIP match');
-        case 'Z':
-          return t('Five digit ZIP matches, Address (Street) does not');
+    // Build and populate the API request SimpleXML element.
+    $api_request_element = new SimpleXMLElement('<' . $request_type . '/>');
+    $api_request_element->addAttribute('xmlns', 'AnetApi/xml/v1/schema/AnetApiSchema.xsd');
+    commerce_simplexml_add_children($api_request_element, $api_request_data);
+
+    // Allow modules an opportunity to alter the request before it is sent.
+    drupal_alter('commerce_paymetric_cim_request', $api_request_element, $payment_method, $request_type);
+
+    // Generate an XML string.
+    $xml = $api_request_element->asXML();
+
+    // Log the request if specified.
+    if ($payment_method['settings']['log']['request'] == 'request') {
+      // Mask the credit card number and CVV.
+      $log_element = clone($api_request_element);
+      $log_element->merchantAuthentication->name = str_repeat('X', strlen((string) $log_element->merchantAuthentication->name));
+      $log_element->merchantAuthentication->transactionKey = str_repeat('X', strlen((string) $log_element->merchantAuthentication->transactionKey));
+
+      if (!empty($log_element->profile->paymentProfiles->payment->creditCard->cardNumber)) {
+        $card_number = (string) $log_element->profile->paymentProfiles->payment->creditCard->cardNumber;
+        $log_element->profile->paymentProfiles->payment->creditCard->cardNumber = str_repeat('X', strlen($card_number) - 4) . substr($card_number, -4);
       }
 
-      return '-';
-    }
-
-    /**
-     * Returns the message text for a CVV match.
-     */
-    public function commerce_paymetric_cvv_response($code) {
-      switch ($code) {
-        case 'M':
-          return t('Match');
-        case 'N':
-          return t('No Match');
-        case 'P':
-          return t('Not Processed');
-        case 'S':
-          return t('Should have been present');
-        case 'U':
-          return t('Issuer unable to process request');
+      if (!empty($log_element->paymentProfile->payment->creditCard->cardNumber)) {
+        $card_number = (string) $log_element->paymentProfile->payment->creditCard->cardNumber;
+        $log_element->paymentProfile->payment->creditCard->cardNumber = str_repeat('X', strlen($card_number) - 4) . substr($card_number, -4);
       }
 
-      return '-';
+      if (!empty($log_element->profile->paymentProfiles->payment->creditCard->cardCode)) {
+        $log_element->profile->paymentProfiles->payment->creditCard->cardCode = str_repeat('X', strlen((string) $log_element->profile->paymentProfiles->payment->creditCard->cardCode));
+      }
+
+      if (!empty($log_element->paymentProfile->payment->creditCard->cardCode)) {
+        $log_element->paymentProfile->payment->creditCard->cardCode = str_repeat('X', strlen((string) $log_element->paymentProfile->payment->creditCard->cardCode));
+      }
+
+      watchdog('commerce_paymetric', 'Authorize.Net CIM @type to @url: @xml', array('@type' => $request_type, '@url' => $url, '@xml' => $log_element->asXML()), WATCHDOG_DEBUG);
     }
-    
-    
-    
-    
-/**** Functions implemented by the AuthorizeNet Payment Gateway module for Commerce 2 ****/
-   /**
-   * Maps the Authorize.Net credit card type to a Commerce credit card type.
+
+    // Build the array of header information for the request.
+    $header = array();
+    $header[] = 'Content-type: text/xml; charset=utf-8';
+
+    // Setup the cURL request.
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_VERBOSE, 0);
+    curl_setopt($ch, CURLOPT_POST, 1);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, 0);
+    curl_setopt($ch, CURLOPT_NOPROGRESS, 1);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, 0);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+    $result = curl_exec($ch);
+
+    // Log any errors to the watchdog.
+    if ($error = curl_error($ch)) {
+      watchdog('commerce_paymetric', 'cURL error: @error', array('@error' => $error), WATCHDOG_ERROR);
+      return FALSE;
+    }
+    curl_close($ch);
+
+    // If we received data back from the server...
+    if (!empty($result)) {
+      // Remove non-absolute XML namespaces to prevent SimpleXML warnings.
+      $result = str_replace(' xmlns="AnetApi/xml/v1/schema/AnetApiSchema.xsd"', '', $result);
+
+      // Extract the result into an XML response object.
+      $response = new SimpleXMLElement($result);
+
+      // Log the API response if specified.
+      if ($payment_method['settings']['log']['response'] == 'response') {
+        watchdog('commerce_paymetric', 'API response received:<pre>@xml</pre>', array('@xml' => $response->asXML()));
+      }
+
+      return $response;
+    }
+    else {
+      return FALSE;
+    }
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  /**** Drupal 7 Commerce Module Legacy Functions ****/
+  /**
+   * Returns the URL to the Authorize.Net CIM server determined by transaction mode.
    *
-   * @param string $card_type
-   *   The Authorize.Net credit card type.
+   * @paramx $txn_mode
+   *   The transaction mode that relates to the live or test server.
    *
-   * @return string
-   *   The Commerce credit card type.
+   * @returnx
+   *   The URL to use to submit requests to the Authorize.Net CIM server.
    */
-  protected function mapCreditCardType($card_type) {
-    $map = [
-      'American Express' => 'amex',
-      'Diners Club' => 'dinersclub',
-      'Discover' => 'discover',
-      'JCB' => 'jcb',
-      'MasterCard' => 'mastercard',
-      'Visa' => 'visa',
-    ];
-    if (!isset($map[$card_type])) {
-      throw new HardDeclineException(sprintf('Unsupported credit card type "%s".', $card_type));
+  function commerce_paymetric_cim_server_url($txn_mode) {
+    switch ($txn_mode) {
+      case PAYMETRIC_TXN_MODE_LIVE:
+      case PAYMETRIC_TXN_MODE_LIVE_TEST:
+        return variable_get('commerce_paymetric_cim_server_url_live', 'https://api2.authorize.net/xml/v1/request.api');
+      case PAYMETRIC_TXN_MODE_DEVELOPER:
+        return variable_get('commerce_paymetric_cim_server_url_dev', 'https://apitest.authorize.net/xml/v1/request.api');
     }
-
-    return $map[$card_type];
   }
 
   /**
-   * Writes an API response to the log for debugging.
+   * Returns the transaction type string for Authorize.Net that corresponds to the
+   *   Drupal Commerce constant.
    *
-   * @param \CommerceGuys\AuthNet\Response\ResponseInterface $response
-   *   The API response object.
+   * @param $txn_type
+   *   A Drupal Commerce transaction type constant.
    */
-  protected function logResponse(ResponseInterface $response) {
-    $message = $this->describeResponse($response);
-    $level = $response->getResultCode() === 'Error' ? 'error' : 'info';
-    $this->logger->log($level, $message);
+  function commerce_paymetric_txn_type($txn_type) {
+    switch ($txn_type) {
+      case COMMERCE_CREDIT_AUTH_ONLY:
+        return 'AUTH_ONLY';
+      case COMMERCE_CREDIT_PRIOR_AUTH_CAPTURE:
+        return 'PRIOR_AUTH_CAPTURE';
+      case COMMERCE_CREDIT_AUTH_CAPTURE:
+        return 'AUTH_CAPTURE';
+      case COMMERCE_CREDIT_CAPTURE_ONLY:
+        return 'CAPTURE_ONLY';
+      case COMMERCE_CREDIT_REFERENCE_SET:
+      case COMMERCE_CREDIT_REFERENCE_TXN:
+      case COMMERCE_CREDIT_REFERENCE_REMOVE:
+      case COMMERCE_CREDIT_REFERENCE_CREDIT:
+        return NULL;
+      case COMMERCE_CREDIT_CREDIT:
+        return 'CREDIT';
+      case COMMERCE_CREDIT_VOID:
+        return 'VOID';
+    }
   }
 
   /**
-   * Formats an API response as a string.
+   * Returns the CIM transaction request type that correponds to a the Drupal
+   * Commerce constant.
    *
-   * @param \CommerceGuys\AuthNet\Response\ResponseInterface $response
-   *   The API response object.
-   *
-   * @return string
-   *   The message.
+   * @param $txn_type
+   *   A Drupal Commerce transaction type constant.
    */
-  protected function describeResponse(ResponseInterface $response) {
-    $messages = [];
-    foreach ($response->getMessages() as $message) {
-      $messages[] = $message->getCode() . ': ' . $message->getText();
+  function commerce_paymetric_cim_transaction_element_name($txn_type) {
+    switch ($txn_type) {
+      case COMMERCE_CREDIT_AUTH_ONLY:
+        return 'profileTransAuthOnly';
+      case COMMERCE_CREDIT_AUTH_CAPTURE:
+        return 'profileTransAuthCapture';
+      case COMMERCE_CREDIT_CAPTURE_ONLY:
+        return 'profileTransCaptureOnly';
+      case COMMERCE_CREDIT_PRIOR_AUTH_CAPTURE:
+        return 'profileTransPriorAuthCapture';
+      case COMMERCE_CREDIT_CREDIT:
+        return 'profileTransRefund';
+      case COMMERCE_CREDIT_VOID:
+        return 'profileTransVoid';
+      default:
+        return '';
     }
-
-    return $this->t('Received response with code %code from Authorize.net: @messages', [
-      '%code' => $response->getResultCode(),
-      '@messages' => implode("\n", $messages),
-    ]);
   }
 
   /**
-   * Gets the line items from order.
+   * Returns the description of an Authorize.Net transaction type.
    *
-   * @param \Drupal\commerce_order\Entity\OrderInterface $order
-   *   The order.
-   *
-   * @return \CommerceGuys\AuthNet\DataTypes\LineItem[]
-   *   An array of line items.
+   * @param $txn_type
+   *   An Authorize.Net transaction type string.
    */
-  protected function getLineItems(OrderInterface $order) {
-    $line_items = [];
-    foreach ($order->getItems() as $order_item) {
-      $name = $order_item->label();
-      $name = (strlen($name) > 31) ? substr($name, 0, 28) . '...' : $name;
-
-      $line_items[] = new LineItem([
-        'itemId' => $order_item->id(),
-        'name' => $name,
-        'quantity' => $order_item->getQuantity(),
-        'unitPrice' => $order_item->getUnitPrice()->getNumber(),
-      ]);
+  public function commerce_paymetric_reverse_txn_type($txn_type) {
+    switch (strtoupper($txn_type)) {
+      case 'AUTH_ONLY':
+        return t('Authorization only');
+      case 'PRIOR_AUTH_CAPTURE':
+        return t('Prior authorization capture');
+      case 'AUTH_CAPTURE':
+        return t('Authorization and capture');
+      case 'CAPTURE_ONLY':
+        return t('Capture only');
+      case 'CREDIT':
+        return t('Credit');
+      case 'VOID':
+        return t('Void');
     }
-
-    return $line_items;
   }
 
+  /**
+   * Returns the message text for an AVS response code.
+   */
+  public function commerce_paymetric_avs_response($code) {
+    switch ($code) {
+      case 'A':
+        return t('Address (Street) matches, ZIP does not');
+      case 'B':
+        return t('Address information not provided for AVS check');
+      case 'E':
+        return t('AVS error');
+      case 'G':
+        return t('Non-U.S. Card Issuing Bank');
+      case 'N':
+        return t('No Match on Address (Street) or ZIP');
+      case 'P':
+        return t('AVS not applicable for this transaction');
+      case 'R':
+        return t('Retry – System unavailable or timed out');
+      case 'S':
+        return t('Service not supported by issuer');
+      case 'U':
+        return t('Address information is unavailable');
+      case 'W':
+        return t('Nine digit ZIP matches, Address (Street) does not');
+      case 'X':
+        return t('Address (Street) and nine digit ZIP match');
+      case 'Y':
+        return t('Address (Street) and five digit ZIP match');
+      case 'Z':
+        return t('Five digit ZIP matches, Address (Street) does not');
+    }
+
+    return '-';
+  }
+
+  /**
+   * Returns the message text for a CVV match.
+   */
+  public function commerce_paymetric_cvv_response($code) {
+    switch ($code) {
+      case 'M':
+        return t('Match');
+      case 'N':
+        return t('No Match');
+      case 'P':
+        return t('Not Processed');
+      case 'S':
+        return t('Should have been present');
+      case 'U':
+        return t('Issuer unable to process request');
+    }
+
+    return '-';
+  }
 
 }
