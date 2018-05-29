@@ -1,0 +1,17 @@
+{
+  "name": "drupal/commerce_paymetric",
+  "type": "drupal-module",
+  "description": "Provides Paymetric payment gateways.",
+  "keywords": ["Drupal", "Paymetric", "Commerce"],
+  "license": "GPL-2.0+",
+  "homepage": "https://www.drupal.org/sandbox/tigatok/2975879",
+  "minimum-stability": "8.x",
+  "support": {
+    "issues": "https://www.drupal.org/project/issues/2975879",
+    "source": "http://cgit.drupalcode.org/commerce_pos"
+  },
+  "require": {
+    "drupal/commerce": "~2.4",
+    "drupal/search_api": "~1.0"
+  }
+}
