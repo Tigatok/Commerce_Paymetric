@@ -5,14 +5,14 @@
   "keywords": ["Drupal", "Paymetric", "Commerce"],
   "license": "GPL-2.0+",
   "homepage": "https://www.drupal.org/project/commerce_paymetric",
-  "minimum-stability": "8.x",
+  "minimum-stability": "8.x-5.x",
   "support": {
-    "issues": "https://www.drupal.org/project/issues/2975879",
+    "issues": "https://www.drupal.org/project/issues/commerce_paymetric",
     "source": "https://cgit.drupalcode.org/commerce_paymetric"
   },
   "require": {
     "drupal/commerce": "~2.4",
     "drupal/search_api": "~1.0",
-    "drupal/commerce_authnet":"^1.0@RC"
+    "drupal/commerce_authnet":"~1.0"
   }
 }
