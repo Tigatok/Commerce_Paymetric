@@ -5,9 +5,6 @@ package: Commerce (contrib)
 # core: 8.x
 dependencies:
   - commerce:commerce_payment
-  - commerce:commerce_authnet
-
-version: '8.x-1.0-beta1'
+version: '8.x-1.x-dev'
 core: '8.x'
 project: 'commerce_paymetric'
-datestamp: 1525111512
