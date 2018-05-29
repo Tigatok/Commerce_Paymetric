@@ -8,10 +8,11 @@
   "minimum-stability": "8.x",
   "support": {
     "issues": "https://www.drupal.org/project/issues/2975879",
-    "source": "http://cgit.drupalcode.org/commerce_pos"
+    "source": "https://cgit.drupalcode.org/sandbox-tigatok-2975879"
   },
   "require": {
     "drupal/commerce": "~2.4",
-    "drupal/search_api": "~1.0"
+    "drupal/search_api": "~1.0",
+    "drupal/commerce_authnet":"^1.0@RC"
   }
 }
