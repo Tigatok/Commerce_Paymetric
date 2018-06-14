@@ -319,8 +319,6 @@ class Paymetric extends OffsitePaymentGatewayBase {
    * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
   public function authorizePaymentMethod($payment, array $payment_details) {
-    $stop = TRUE;
-
     /** @var \Drupal\commerce_order\Entity\OrderInterface $order */
     $order = $payment->getEntity()->getOrder();
 
@@ -348,6 +346,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
       'billtozip' => $address->getPostalCode(),
       'billtocountry' => $address->getCountryCode(),
     ]);
+    return $data;
   }
 
   /**
@@ -377,9 +376,6 @@ class Paymetric extends OffsitePaymentGatewayBase {
    */
   protected function executeTransaction(array $parameters) {
 
-    // Echo 'Execute Transaction v1: <br>';
-    // print_r($parameters);
-    // echo '<br> ACCNT: '.$parameters[acct];.
     $ini_array = [];
     $ini_array['XiPay-QA']['paymetric.xipay.url'] = $this->getXIURL();
     $ini_array['XiPay-QA']['paymetric.xipay.user'] = $this->getUser();
@@ -419,19 +415,13 @@ class Paymetric extends OffsitePaymentGatewayBase {
 
     $response = $this->authorize($ini_array, $nvp);
 
-    echo $response;
-    sleep(180);
-
-    // Return $response;.
+    return $response;
   }
 
   /**
-   *
+   * Authorizes a card for payment.
    */
   public function authorize($ini_array, $nvp) {
-    // Echo 'Authorize Function called!<br>';
-    // print_r($ini_array);
-    // print_r($nvp);
     if ($ini_array == FALSE) {
       $FileError = "Paymetric ini file not found. Please check the Paymetric directory.";
       throw new PaymentGatewayException($FileError);
@@ -443,50 +433,26 @@ class Paymetric extends OffsitePaymentGatewayBase {
 
     $xipayTransaction = new PaymetricTransaction();
     // Test value.
-    $grandTotal = 0;
-    // $grandTotal= $nvp['x_total'];.
     $xipayTransaction->CardCVV2 = $nvp['x_card_code'];
-    $xipayTransaction->CardDataSource = $nvp['x_card_datasource'];
-    // format: month/year.
     $xipayTransaction->CardExpirationDate = $nvp['x_exp_date'];
-    $xipayTransaction->CardHolderAddress1 = $nvp['x_address'];
-    $xipayTransaction->CardHolderAddress2 = $nvp['x_address2'];
-    $xipayTransaction->CardHolderCity = $nvp['x_city'];
-    $xipayTransaction->CardHolderCountry = $nvp['x_country'];
-    $xipayTransaction->CardHolderName1 = $nvp['x_first_name'];
-    $xipayTransaction->CardHolderName2 = $nvp['x_last_name'];
-    $xipayTransaction->CardHolderName = $nvp['x_first_name'] . " " . $nvp['x_last_name'];
-    $xipayTransaction->CardHolderState = $nvp['x_state'];
-    $xipayTransaction->CardHolderZip = $nvp['x_zip'];
-    $xipayTransaction->CardType = ucfirst($nvp['x_card_type']);
-
-    $xipayTransaction->Amount = $grandTotal;
+    $xipayTransaction->Amount = '0.00';
     $xipayTransaction->CardNumber = $nvp['x_card_num'];
-    $xipayTransaction->CardPresent = $nvp['x_card_present'];
     $xipayTransaction->CurrencyKey = $nvp['x_currency_code'];
     $xipayTransaction->MerchantID = $ini_array['MerchantID']['paymetric.xipay.merchantid'];
 
-    // Print XT Request
-    // $XTReq = print_r($xipayTransaction);
-    // $XTReq = print_r($ini_array);
-    // echo $XTReq;
-    // stdClass Object ( [CardCVV2] => 000 [CardDataSource] => E [CardExpirationDate] => 20/24-05 [CardHolderAddress1] => 101 Cherry Court [CardHolderAddress2] => Unit 1436 [CardHolderCity] => Waleska [CardHolderCountry] => US [CardHolderName1] => Robert [CardHolderName2] => Simmons [CardHolderName] => Robert Simmons [CardHolderState] => GA [CardHolderZip] => 30183 [CardType] => Master Card [Amount] => 0 [CardNumber] => 5424000000000015 [CardPresent] => 0 [CurrencyKey] => USD [MerchantID] => 334273210883 )
+    // Authorize the request.
     $authResponse = $XiPay->Authorize($xipayTransaction);
-//    echo "XTRes <pre>"; print_r($authResponse); echo "</pre>";
 
-    $transID = 0;
-    $authorized = '';
-
+    // Status code success == 0.
     if ($authResponse->Status == STATUS_OK) {
       $authorized = $authResponse->Transaction;
-      echo "Transaction Authorized with STATUS_OK: <pre>"; print_r($authorized); echo "</pre>";
-      echo "Status Code: " . $authorized->StatusCode . "<br>";
-
-      if ($authorized->StatusCode != 100) {
-        $ErrorMsg = "Error Message: " . $authResponse->Message;
-        $ErrorCode = " and Error Code: " . $authorized->StatusCode;
-        // watchdog('commerce_paymetric', 'Paymetric authorize request @MSG: @CODE', array('@MSG' => $ErrorMsg, '@CODE' => $ErrorCode), WATCHDOG_DEBUG);.
+      if ($authResponse->Transaction->ResponseCode == 104) {
+        \Drupal::service('messenger')->addMessage('The card was authorized successfully.');
       }
+    }
+    else {
+      \Drupal::service('messenger')->addError('There was an issue processing your card.');
+
     }
     return $authorized;
   }

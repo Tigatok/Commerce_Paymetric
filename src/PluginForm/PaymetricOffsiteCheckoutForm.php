@@ -122,11 +122,19 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
    *
    * @param array $form
    * @param \Drupal\Core\Form\FormStateInterface $form_state
+   * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     // Sanitize?
     $payment_details = $form_state->getUserInput()['payment_process']['offsite_payment']['payment_details'];
-    $this->plugin->authorizePaymentMethod($this, $payment_details);
+    /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
+    $plugin = $this->plugin;
+    $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
+    $authorization->ResponseCode = '106';
+    if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
+
+      return FALSE;
+    }
   }
 
   /**
