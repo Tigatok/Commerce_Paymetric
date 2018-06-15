@@ -325,26 +325,11 @@ class Paymetric extends OffsitePaymentGatewayBase {
     /** @var \Drupal\profile\Entity\ProfileInterface $billing_profile */
     $billing_profile = $order->getBillingProfile();
 
-    /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
-    $address = $billing_profile->get('address')->first();
-
-    $data = $this->executeTransaction([
-      'trxtype' => 'A',
+    $data = $this->executeTransaction('1', [
       'amt' => 0,
-      'verbosity' => 'HIGH',
       'acct' => $payment_details['number'],
       'expdate' => $this->getExpirationDate($payment_details['expiration']),
       'cvv2' => $payment_details['security_code'],
-    // - NO EMAIL ADDRESS for Guest checkout but not a problem as it is stored in Commerce 2.
-      'billtoemail' => $billing_profile->getOwner()->getEmail(),
-      'billtofirstname' => $address->getGivenName(),
-      'billtolastname' => $address->getFamilyName(),
-      'billtostreet' => $address->getAddressLine1(),
-      'billtostreet2' => $address->getAddressLine2(),
-      'billtocity' => $address->getLocality(),
-      'billtostate' => $address->getAdministrativeArea(),
-      'billtozip' => $address->getPostalCode(),
-      'billtocountry' => $address->getCountryCode(),
     ]);
     return $data;
   }
@@ -374,7 +359,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
    * @return array
    *   The response body data in array format.
    */
-  protected function executeTransaction(array $parameters) {
+  protected function executeTransaction($transaction_type, array $parameters) {
 
     $ini_array = [];
     $ini_array['XiPay-QA']['paymetric.xipay.url'] = $this->getXIURL();
@@ -385,35 +370,26 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $ini_array['Xiintercept-QA']['paymetric.xiintercept.PSK'] = $this->getXIPSK();
     $ini_array['Xiintercept-QA']['paymetric.xiintercept.url'] = $this->getXIIURL();
 
-    $nvp = [];
-    // Add the default name-value pairs to the array.
-    // Evaluate if person is logged in or using guest checkout.
-    $customer_email = $parameters['billtoemail'];
+    // 1 == Authorization.
+    if ($transaction_type == 1) {
+      $data = [
+        'x_card_code' => $parameters['cvv2'],
+        'x_exp_date' => $parameters['expdate'],
+        'x_total' => $parameters['amt'],
+        'x_card_num' => $parameters['acct'],
+        'x_currency_code' => "USD",
+      ];
+    }
+    // 17 == Capture.
+    elseif ($transaction_type == 17) {
 
-    $nvp += [
-      'x_card_code' => $parameters['cvv2'],
-      'x_card_datasource' => "E",
-      'x_exp_date' => $parameters['expdate'],
-      'x_address' => $parameters['billtostreet'],
-      'x_address2' => $parameters['billtostreet2'],
-      'x_city' => $parameters['billtocity'],
-      'x_country' => $parameters['billtocountry'],
-      'x_first_name' => $parameters['billtofirstname'],
-      'x_last_name' => $parameters['billtolastname'],
-      'x_state' => $parameters['billtostate'],
-      'x_zip' => $parameters['billtozip'],
-    // ???
-      'x_card_type' => "mastercard",
-      'x_total' => $parameters['amt'],
-      'x_card_num' => $parameters['acct'],
-    // ???
-      'x_card_present' => 0,
-    // ???
-      'x_currency_code' => "USD",
-      'x_email_customer' => $customer_email,
-    ];
+    }
+    // 10 == Void.
+    elseif ($transaction_type == 10) {
 
-    $response = $this->authorize($ini_array, $nvp);
+    }
+
+    $response = $this->authorize($ini_array, $data);
 
     return $response;
   }
@@ -421,10 +397,10 @@ class Paymetric extends OffsitePaymentGatewayBase {
   /**
    * Authorizes a card for payment.
    */
-  public function authorize($ini_array, $nvp) {
+  public function authorize($ini_array, $data) {
     if ($ini_array == FALSE) {
-      $FileError = "Paymetric ini file not found. Please check the Paymetric directory.";
-      throw new PaymentGatewayException($FileError);
+      $file_error = "Paymetric ini file not found. Please check the Paymetric directory.";
+      throw new PaymentGatewayException($file_error);
     }
 
     $XiPay = new XiPaySoapClient($ini_array['XiPay-QA']['paymetric.xipay.url'],
@@ -432,27 +408,30 @@ class Paymetric extends OffsitePaymentGatewayBase {
       $ini_array['XiPay-QA']['paymetric.xipay.password']);
 
     $xipayTransaction = new PaymetricTransaction();
-    // Test value.
-    $xipayTransaction->CardCVV2 = $nvp['x_card_code'];
-    $xipayTransaction->CardExpirationDate = $nvp['x_exp_date'];
+    // Must send 0 for authorization.
     $xipayTransaction->Amount = '0.00';
-    $xipayTransaction->CardNumber = $nvp['x_card_num'];
-    $xipayTransaction->CurrencyKey = $nvp['x_currency_code'];
+    $xipayTransaction->CardCVV2 = $data['x_card_code'];
+    $xipayTransaction->CardExpirationDate = $data['x_exp_date'];
+    $xipayTransaction->CardNumber = $data['x_card_num'];
+    $xipayTransaction->CurrencyKey = $data['x_currency_code'];
     $xipayTransaction->MerchantID = $ini_array['MerchantID']['paymetric.xipay.merchantid'];
 
     // Authorize the request.
     $authResponse = $XiPay->Authorize($xipayTransaction);
 
+    /** @var \Drupal\Core\Messenger\Messenger $messenger */
+    $messenger = \Drupal::service('messenger');
+
     // Status code success == 0.
     if ($authResponse->Status == STATUS_OK) {
       $authorized = $authResponse->Transaction;
       if ($authResponse->Transaction->ResponseCode == 104) {
-        \Drupal::service('messenger')->addMessage('The card was authorized successfully.');
+        $messenger->addMessage('The card was authorized successfully.');
       }
     }
     else {
-      \Drupal::service('messenger')->addError('There was an issue processing your card.');
-
+      $messenger->addError('There was an issue processing your card.');
+      return $authResponse;
     }
     return $authorized;
   }

@@ -4,6 +4,7 @@ namespace Drupal\commerce_paymetric\PluginForm;
 
 use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
 use Drupal\Core\Form\FormStateInterface;
+use Paymetric\PaymetricTransaction;
 
 /**
  * Provides a checkout form for our offsite payment.
@@ -136,12 +137,22 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
       $plugin = $this->plugin;
       $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
+      /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
+      $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
+      if ($authorization instanceof PaymetricTransaction) {
+        if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
+          $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card.');
 
-      if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
-        /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
-        $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
-        $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card.');
-
+          // Saves to the dblog.
+          $dblog->error($authorization->Message);
+          // Saves to the order.
+          $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+            'data' => $authorization->Message,
+          ])->save();
+          return FALSE;
+        }
+      }
+      else {
         // Saves to the dblog.
         $dblog->error($authorization->Message);
         // Saves to the order.
