@@ -5,12 +5,14 @@ namespace Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway;
 // Required for base class.
 use CommerceGuys\AuthNet\DataTypes\TransactionRequest;
 use Drupal\commerce_order\Entity\OrderInterface;
+use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
 // Required for base class.
 use Drupal\commerce_payment\PaymentTypeManager;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayBase;
 // Required for base class.
+use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterface;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_price\RounderInterface;
 // Required for base class.
@@ -43,7 +45,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   },
  * )
  */
-class Paymetric extends OffsitePaymentGatewayBase {
+class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInterface {
 
   /**
    * Paymetric test API URL.
@@ -506,4 +508,19 @@ class Paymetric extends OffsitePaymentGatewayBase {
     return $authorized;
   }
 
+  /**
+   * Refunds the given payment.
+   *
+   * @param \Drupal\commerce_payment\Entity\PaymentInterface $payment
+   *   The payment to refund.
+   * @param \Drupal\commerce_price\Price $amount
+   *   The amount to refund. If NULL, defaults to the entire payment amount.
+   *
+   * @throws \Drupal\commerce_payment\Exception\PaymentGatewayException
+   *   Thrown when the transaction fails for any reason.
+   */
+  public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
+    // TODO: Implement refundPayment() method.
+    $stop = true;
+  }
 }

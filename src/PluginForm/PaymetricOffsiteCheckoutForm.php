@@ -6,6 +6,7 @@ use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Paymetric\PaymetricTransaction;
 
 /**
@@ -209,7 +210,8 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
         'transactionId' => $settlement->TransactionID,
         'message' => $settlement->Message,
       ];
-      $this->buildRedirectForm($form, $form_state, 'https://drupal8.lndo.site/checkout/17/payment/return', $data, 'get');
+      $url = Url::fromRoute('commerce_payment.checkout.return', ['commerce_order' => $this->getEntity()->getOrder()->id(), 'step' => 'payment']);
+      $this->buildRedirectForm($form, $form_state, \Drupal::request()->getSchemeAndHttpHost() . $url->toString(), $data, 'get');
     }
     catch (InvalidPluginDefinitionException $e) {
     }
