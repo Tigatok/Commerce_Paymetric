@@ -3,6 +3,8 @@
 namespace Drupal\commerce_paymetric\PluginForm;
 
 use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
+use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
+use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Core\Form\FormStateInterface;
 use Paymetric\PaymetricTransaction;
 
@@ -133,14 +135,20 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
     /** @var \Drupal\dblog\Logger\DbLog $dblog */
     $dblog = \Drupal::service('logger.dblog');
     try {
+      // @todo change this to ->getValue().
       $payment_details = $form_state->getUserInput()['payment_process']['offsite_payment']['payment_details'];
       /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
       $plugin = $this->plugin;
       $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
+      $transaction_id = $authorization->TransactionID;
+      $batch_id = $authorization->BatchID;
+      $form_state->set('transaction_id', $transaction_id);
+      $form_state->set('batch_id', $batch_id);
       /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
       $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
+      $response_code = $authorization->ResponseCode;
       if ($authorization instanceof PaymetricTransaction) {
-        if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
+        if ($response_code != '104') {
           $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card.');
 
           // Saves to the dblog.
@@ -179,8 +187,34 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
    *   The form state object.
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    // Invoke the payment gateway createPayment.
-    $this->plugin->createPayment();
+    try {
+      // Card details.
+      $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
+      $payment_details['transaction_id'] = $form_state->get('transaction_id');
+
+      // Invoke the payment gateway createPayment.
+      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
+      $plugin = $this->plugin;
+      $settlement = $plugin->createPaymentMethod($this, $payment_details);
+      /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
+      $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
+      if ($settlement->StatusCode == 200) {
+        $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+          'data' => 'The ',
+        ])->save();
+      }
+      $data = [
+        'amount' => $settlement->SettlementAmount,
+        'currency' => $settlement->CurrencyKey,
+        'transactionId' => $settlement->TransactionID,
+        'message' => $settlement->Message,
+      ];
+      $this->buildRedirectForm($form, $form_state, 'https://drupal8.lndo.site/checkout/17/payment/return', $data, 'get');
+    }
+    catch (InvalidPluginDefinitionException $e) {
+    }
+    catch (PluginNotFoundException $e) {
+    }
   }
 
 }
