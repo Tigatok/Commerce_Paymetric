@@ -6,7 +6,7 @@ use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
 use Drupal\Core\Form\FormStateInterface;
 
 /**
- *
+ * Provides a checkout form for our offsite payment.
  */
 class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
 
@@ -121,27 +121,51 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
    * Do card authorization here?
    *
    * @param array $form
+   *   The form array.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
-   * @throws \Drupal\Core\TypedData\Exception\MissingDataException
+   *   The form state object.
+   *
+   * @return bool
+   *   If the authorization succeeded or not.
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    // Sanitize?
-    $payment_details = $form_state->getUserInput()['payment_process']['offsite_payment']['payment_details'];
-    /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
-    $plugin = $this->plugin;
-    $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
-    $authorization->ResponseCode = '106';
-    if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
+    /** @var \Drupal\dblog\Logger\DbLog $dblog */
+    $dblog = \Drupal::service('logger.dblog');
+    try {
+      $payment_details = $form_state->getUserInput()['payment_process']['offsite_payment']['payment_details'];
+      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
+      $plugin = $this->plugin;
+      $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
 
+      if ($authorization->ResponseCode != '104' || $authorization->ResponseCode != '105') {
+        /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
+        $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
+        $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card.');
+
+        // Saves to the dblog.
+        $dblog->error($authorization->Message);
+        // Saves to the order.
+        $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+          'data' => $authorization->Message,
+        ])->save();
+        return FALSE;
+      }
+    }
+    catch (\Exception $e) {
+      $dblog->error('There was an issue processing: ' . $e->getMessage());
+      $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card. Please try again later.');
       return FALSE;
     }
+    return TRUE;
   }
 
   /**
    * Call the plugins implementation of the create payment here.
    *
    * @param array $form
+   *   The form array.
    * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The form state object.
    */
   public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
     // Invoke the payment gateway createPayment.

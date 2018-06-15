@@ -1,0 +1,5 @@
+paymetric_payment_error:
+  id: paymetric_payment_error
+  category: commerce_paymetric
+  label: 'Payment error'
+  template: '<p>Paymetric Error: {{ data }}.</p>'
