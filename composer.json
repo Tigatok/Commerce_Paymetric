@@ -11,13 +11,6 @@
     "source": "https://cgit.drupalcode.org/commerce_paymetric"
   },
   "require": {
-    "drupal/commerce": "~2",
-    "lalitkaushik/paymetric": "dev-update-master-with-working"
-  },
-  "repositories": [
-    {
-      "type": "git",
-      "url": "https://github.com/Tigatok/paymetric/"
-    }
-  ]
+    "drupal/commerce": "~2"
+  }
 }
