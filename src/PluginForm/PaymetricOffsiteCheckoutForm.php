@@ -3,11 +3,11 @@
 namespace Drupal\commerce_paymetric\PluginForm;
 
 use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
+use Drupal\commerce_paymetric\lib\PaymetricTransaction;
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
 use Drupal\Component\Plugin\Exception\PluginNotFoundException;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Paymetric\PaymetricTransaction;
 
 /**
  * Provides a checkout form for our offsite payment.
