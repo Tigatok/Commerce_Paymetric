@@ -30,15 +30,10 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       '#payment_method_type' => $payment_method->bundle(),
     ];
     $form['payment_details'] = $this->buildCreditCardForm($form['payment_details'], $form_state);
-    $order = $payment_method->getOrder();
-    $current_checkout_step = $order->get('checkout_step')->getValue()[0]['value'];
-    /** @var \Drupal\commerce_checkout\Entity\CheckoutFlowInterface $checkout_flow */
-    $checkout_flow = $order->get('checkout_flow')->entity;
-    $next_step = $checkout_flow->getPlugin()->getNextStepId($current_checkout_step);
 
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#title' => t('Complete purchase'),
+      '#value' => t('Complete purchase'),
     ];
 
     return $form;
