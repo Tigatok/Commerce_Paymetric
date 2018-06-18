@@ -136,8 +136,7 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
     /** @var \Drupal\dblog\Logger\DbLog $dblog */
     $dblog = \Drupal::service('logger.dblog');
     try {
-      // @todo change this to ->getValue().
-      $payment_details = $form_state->getUserInput()['payment_process']['offsite_payment']['payment_details'];
+      $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
       /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
       $plugin = $this->plugin;
       $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
