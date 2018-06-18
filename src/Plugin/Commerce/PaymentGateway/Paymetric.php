@@ -2,22 +2,14 @@
 
 namespace Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway;
 
-// Required for base class.
-use CommerceGuys\AuthNet\DataTypes\TransactionRequest;
 use Drupal\commerce_order\Entity\OrderInterface;
-use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
-// Required for base class.
 use Drupal\commerce_payment\PaymentTypeManager;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayBase;
-// Required for base class.
-use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterface;
 use Drupal\commerce_price\Price;
 use Drupal\commerce_price\RounderInterface;
-// Required for base class.
 use Drupal\Component\Datetime\TimeInterface;
-// Required for base class.
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
 use GuzzleHttp\ClientInterface;
@@ -45,7 +37,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   },
  * )
  */
-class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInterface {
+class Paymetric extends OffsitePaymentGatewayBase {
 
   /**
    * Paymetric test API URL.
@@ -174,7 +166,6 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
       'xiintercept_url' => '',
       'xipay_merchantid' => '',
       'credit_card_types' => '',
-      'transaction_type' => TransactionRequest::AUTH_CAPTURE,
     ] + parent::defaultConfiguration();
   }
 
@@ -246,18 +237,6 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
       '#required' => TRUE,
     ];
 
-    $form['transaction_type'] = [
-      '#type' => 'radios',
-      '#title' => $this->t('Default credit card transaction type'),
-      '#description' => t('The default will be used to process transactions during checkout.'),
-      '#default_value' => $this->configuration['transaction_type'],
-      '#options' => [
-        TransactionRequest::AUTH_ONLY => $this->t('Authorization only (requires manual or automated capture after checkout)'),
-        TransactionRequest::AUTH_CAPTURE => $this->t('Authorization and capture'),
-        // @todo AUTH_ONLY but causes capture at placed transition.
-      ],
-    ];
-
     return $form;
   }
 
@@ -299,14 +278,19 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
    */
   public function onReturn(OrderInterface $order, Request $request) {
     $payment_storage = $this->entityTypeManager->getStorage('commerce_payment');
+    $parameters = explode('&', $request->getQueryString());
+    $amount = explode('=', $parameters['0'])[1];
+    $currency = explode('=', $parameters['1'])[1];
+    $message = explode('=', $parameters['2'])[1];
+    $transaction_id = explode('=', $parameters['3'])[1];
     $payment = $payment_storage->create([
       'state' => 'completed',
-      'amount' => new Price($_GET['amount'], $_GET['currency']),
+      'amount' => new Price($amount, $currency),
       'payment_gateway' => $this->entityId,
       'order_id' => $order->id(),
       'test' => $this->getMode() == 'test',
-      'remote_id' => $_GET['transactionId'],
-      'remote_state' => $_GET['message'],
+      'remote_id' => $transaction_id,
+      'remote_state' => $message,
       'authorized' => $this->time->getRequestTime(),
     ]);
     $payment->save();
@@ -325,6 +309,8 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
    * This is going to create the payment in the API.
    *
    * @see PaymetricOffsiteCheckoutForm::submitConfigurationForm();:w
+   *
+   * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
   public function createPaymentMethod($payment, $payment_details) {
     /** @var \Drupal\commerce_order\Entity\OrderInterface $order */
@@ -333,17 +319,28 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
     /** @var \Drupal\profile\Entity\ProfileInterface $billing_profile */
     $billing_profile = $order->getBillingProfile();
 
+    /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
+    $address = $billing_profile->get('address')->first();
+
     $data = $this->executeTransaction('17', [
       'amt' => $order->getTotalPrice()->getNumber(),
       'acct' => $payment_details['number'],
       'expdate' => $this->getExpirationDate($payment_details['expiration']),
       'cvv2' => $payment_details['security_code'],
       'transaction_id' => $payment_details['transaction_id'],
+      'first_name' => $address->getGivenName(),
+      'last_name' => $address->getFamilyName(),
+      'company' => $address->getOrganization(),
+      'administrative_area' => $address->getAdministrativeArea(),
+      'city' => $address->getLocality(),
+      'country' => $address->getCountryCode(),
+      'postal_code' => $address->getPostalCode(),
     ]);
     return $data;
   }
 
   /**
+   * Authorize the payment method.
    *
    * @throws \Drupal\Core\TypedData\Exception\MissingDataException
    */
@@ -354,12 +351,23 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
     /** @var \Drupal\profile\Entity\ProfileInterface $billing_profile */
     $billing_profile = $order->getBillingProfile();
 
+    /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $address */
+    $address = $billing_profile->get('address')->first();
+
     $data = $this->executeTransaction('1', [
       'amt' => 0,
       'acct' => $payment_details['number'],
       'expdate' => $this->getExpirationDate($payment_details['expiration']),
       'cvv2' => $payment_details['security_code'],
+      'first_name' => $address->getGivenName(),
+      'last_name' => $address->getFamilyName(),
+      'company' => $address->getOrganization(),
+      'administrative_area' => $address->getAdministrativeArea(),
+      'city' => $address->getLocality(),
+      'country' => $address->getCountryCode(),
+      'postal_code' => $address->getPostalCode(),
     ]);
+
     return $data;
   }
 
@@ -398,6 +406,14 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
         'x_total' => $parameters['amt'],
         'x_card_num' => $parameters['acct'],
         'x_currency_code' => "USD",
+        'x_first_name' => substr($parameters['first_name'], 0, 50),
+        'x_last_name' => substr($parameters['last_name'], 0, 50),
+        'x_company' => substr($parameters['organisation_name'], 0, 50),
+        'x_address' => substr($parameters['thoroughfare'], 0, 60),
+        'x_city' => substr($parameters['locality'], 0, 40),
+        'x_state' => substr($parameters['administrative_area'], 0, 40),
+        'x_zip' => substr($parameters['postal_code'], 0, 20),
+        'x_country' => $parameters['country'],
       ];
       $response = $this->authorize($ini_array, $data);
     }
@@ -411,6 +427,14 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
         'x_currency_code' => "USD",
         'x_transaction_id' => $parameters['transaction_id'],
         'x_batch_id' => '1',
+        'x_first_name' => substr($parameters['first_name'], 0, 50),
+        'x_last_name' => substr($parameters['last_name'], 0, 50),
+        'x_company' => substr($parameters['organisation_name'], 0, 50),
+        'x_address' => substr($parameters['thoroughfare'], 0, 60),
+        'x_city' => substr($parameters['locality'], 0, 40),
+        'x_state' => substr($parameters['administrative_area'], 0, 40),
+        'x_zip' => substr($parameters['postal_code'], 0, 20),
+        'x_country' => $parameters['country'],
       ];
       $response = $this->capture($ini_array, $data);
     }
@@ -443,7 +467,16 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
     $xipayTransaction->CardNumber = $data['x_card_num'];
     $xipayTransaction->CurrencyKey = $data['x_currency_code'];
     $xipayTransaction->MerchantID = $ini_array['MerchantID']['paymetric.xipay.merchantid'];
-
+    $xipayTransaction->CardHolderAddress1 = $data['x_address'];
+    $xipayTransaction->CardHolderAddress2 = "";
+    $xipayTransaction->CardHolderCity = $data['x_city'];
+    $xipayTransaction->CardHolderCountry = $data['x_country'];
+    $xipayTransaction->CardHolderName1 = $data['x_first_name'];
+    $xipayTransaction->CardHolderName2 = $data['x_last_name'];
+    $xipayTransaction->CardHolderName = $data['x_first_name'] . " " . $data['x_last_name'];
+    $xipayTransaction->CardHolderState = $data['x_state'];
+    $xipayTransaction->CardHolderZip = $data['x_zip'];
+    $xipayTransaction->CardType = ucfirst($data['x_card_type']);
     // Authorize the request.
     $authResponse = $XiPay->Authorize($xipayTransaction);
 
@@ -487,7 +520,16 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
     $xipayTransaction->BatchID = '1';
     $xipayTransaction->SettlementAmount = $data['x_total'];
     $xipayTransaction->TransactionID = $data['x_transaction_id'];
-
+    $xipayTransaction->CardHolderAddress1 = $data['x_address'];
+    $xipayTransaction->CardHolderAddress2 = "";
+    $xipayTransaction->CardHolderCity = $data['x_city'];
+    $xipayTransaction->CardHolderCountry = $data['x_country'];
+    $xipayTransaction->CardHolderName1 = $data['x_first_name'];
+    $xipayTransaction->CardHolderName2 = $data['x_last_name'];
+    $xipayTransaction->CardHolderName = $data['x_first_name'] . " " . $data['x_last_name'];
+    $xipayTransaction->CardHolderState = $data['x_state'];
+    $xipayTransaction->CardHolderZip = $data['x_zip'];
+    $xipayTransaction->CardType = ucfirst($data['x_card_type']);
     // Authorize the request.
     $authResponse = $XiPay->Capture($xipayTransaction);
 
@@ -508,19 +550,4 @@ class Paymetric extends OffsitePaymentGatewayBase implements SupportsRefundsInte
     return $authorized;
   }
 
-  /**
-   * Refunds the given payment.
-   *
-   * @param \Drupal\commerce_payment\Entity\PaymentInterface $payment
-   *   The payment to refund.
-   * @param \Drupal\commerce_price\Price $amount
-   *   The amount to refund. If NULL, defaults to the entire payment amount.
-   *
-   * @throws \Drupal\commerce_payment\Exception\PaymentGatewayException
-   *   Thrown when the transaction fails for any reason.
-   */
-  public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
-    // TODO: Implement refundPayment() method.
-    $stop = true;
-  }
 }
