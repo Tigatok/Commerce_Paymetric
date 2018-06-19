@@ -2,6 +2,7 @@
 
 namespace Drupal\commerce_paymetric\PluginForm;
 
+use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\PluginForm\PaymentOffsiteForm;
 use Drupal\commerce_paymetric\lib\PaymetricTransaction;
 use Drupal\Component\Plugin\Exception\InvalidPluginDefinitionException;
@@ -128,8 +129,11 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
    *   If the authorization succeeded or not.
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    /** @var \Drupal\dblog\Logger\DbLog $dblog */
-    $dblog = \Drupal::service('logger.dblog');
+    $this->validateCreditCardForm($form['payment_details'], $form_state);
+    if (!empty($form_state->getErrors())) {
+      return FALSE;
+    }
+
     try {
       $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
       /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
@@ -142,12 +146,11 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
       $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
       $response_code = $authorization->ResponseCode;
+      $status_code = $authorization->StatusCode;
       if ($authorization instanceof PaymetricTransaction) {
-        if ($response_code != '104') {
+        if ($response_code < 0 || $status_code < 0) {
           $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card.');
 
-          // Saves to the dblog.
-          $dblog->error($authorization->Message);
           // Saves to the order.
           $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
             'data' => $authorization->Message,
@@ -156,8 +159,6 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
         }
       }
       else {
-        // Saves to the dblog.
-        $dblog->error($authorization->Message);
         // Saves to the order.
         $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
           'data' => $authorization->Message,
@@ -166,11 +167,39 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       }
     }
     catch (\Exception $e) {
-      $dblog->error('There was an issue processing: ' . $e->getMessage());
       $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card. Please try again later.');
       return FALSE;
     }
     return TRUE;
+  }
+
+  /**
+   * Validates the credit card form.
+   *
+   * @param array $element
+   *   The credit card form element.
+   * @param \Drupal\Core\Form\FormStateInterface $form_state
+   *   The current state of the complete form.
+   */
+  protected function validateCreditCardForm(array &$element, FormStateInterface $form_state) {
+    $values = $form_state->getValue($element['#parents']);
+    $card_type = CreditCard::detectType($values['number']);
+    if (!$card_type) {
+      $form_state->setError($element['number'], t('You have entered a credit card number of an unsupported card type.'));
+      return;
+    }
+    if (!CreditCard::validateNumber($values['number'], $card_type)) {
+      $form_state->setError($element['number'], t('You have entered an invalid credit card number.'));
+    }
+    if (!CreditCard::validateExpirationDate($values['expiration']['month'], $values['expiration']['year'])) {
+      $form_state->setError($element['expiration'], t('You have entered an expired credit card.'));
+    }
+    if (!CreditCard::validateSecurityCode($values['security_code'], $card_type)) {
+      $form_state->setError($element['security_code'], t('You have entered an invalid CVV.'));
+    }
+
+    // Persist the detected card type.
+    $form_state->setValueForElement($element['type'], $card_type->getId());
   }
 
   /**
@@ -195,7 +224,7 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
       if ($settlement->StatusCode == 200) {
         $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
-          'data' => 'The ',
+          'data' => 'The payment was captured successfully.',
         ])->save();
       }
       $data = [

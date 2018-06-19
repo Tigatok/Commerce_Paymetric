@@ -484,15 +484,13 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $messenger = \Drupal::service('messenger');
 
     // Status code success == 0.
+    $authorized = $authResponse->Transaction;
     if ($authResponse->Status == STATUS_OK) {
-      $authorized = $authResponse->Transaction;
-      if ($authResponse->Transaction->ResponseCode == 104) {
-        $messenger->addMessage('The card was authorized successfully.');
+      if ($authorized->StatusCode >= 0) {
+        if ($authResponse->Transaction->ResponseCode == 104) {
+          $messenger->addMessage('The card was authorized successfully.');
+        }
       }
-    }
-    else {
-      $messenger->addError('There was an issue processing your card.');
-      return $authResponse;
     }
     return $authorized;
   }
@@ -537,15 +535,13 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $messenger = \Drupal::service('messenger');
 
     // Status code success == 0.
+    $authorized = $authResponse->Transaction;
     if ($authResponse->Status == STATUS_OK) {
-      $authorized = $authResponse->Transaction;
-      if ($authResponse->Transaction->StatusCode == 200) {
-        $messenger->addMessage('The transaction was captured successfully.');
+      if ($authorized->StatusCode >= 0) {
+        if ($authResponse->Transaction->ResponseCode == 104) {
+          $messenger->addMessage('The card was captured successfully.');
+        }
       }
-    }
-    else {
-      $messenger->addError('There was an issue processing your card.');
-      return $authResponse;
     }
     return $authorized;
   }
