@@ -210,36 +210,36 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
    * @param \Drupal\Core\Form\FormStateInterface $form_state
    *   The form state object.
    */
-  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
-    try {
-      // Card details.
-      $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
-      $payment_details['transaction_id'] = $form_state->get('transaction_id');
-
-      // Invoke the payment gateway createPayment.
-      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
-      $plugin = $this->plugin;
-      $settlement = $plugin->createPaymentMethod($this, $payment_details);
-      /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
-      $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
-      if ($settlement->StatusCode == 200) {
-        $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
-          'data' => 'The payment was captured successfully.',
-        ])->save();
-      }
-      $data = [
-        'amount' => $settlement->SettlementAmount,
-        'currency' => $settlement->CurrencyKey,
-        'transactionId' => $settlement->TransactionID,
-        'message' => $settlement->Message,
-      ];
-      $url = Url::fromRoute('commerce_payment.checkout.return', ['commerce_order' => $this->getEntity()->getOrder()->id(), 'step' => 'payment']);
-      $this->buildRedirectForm($form, $form_state, \Drupal::request()->getSchemeAndHttpHost() . $url->toString(), $data, 'get');
-    }
-    catch (InvalidPluginDefinitionException $e) {
-    }
-    catch (PluginNotFoundException $e) {
-    }
-  }
+//  public function submitConfigurationForm(array &$form, FormStateInterface $form_state) {
+//    try {
+//       Card details.
+//      $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
+//      $payment_details['transaction_id'] = $form_state->get('transaction_id');
+//
+//       Invoke the payment gateway createPayment.
+//      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
+//      $plugin = $this->plugin;
+//      $settlement = $plugin->createPaymentMethod($this, $payment_details);
+//      /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
+//      $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
+//      if ($settlement->StatusCode == 200) {
+//        $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+//          'data' => 'The payment was captured successfully.',
+//        ])->save();
+//      }
+//      $data = [
+//        'amount' => $settlement->SettlementAmount,
+//        'currency' => $settlement->CurrencyKey,
+//        'transactionId' => $settlement->TransactionID,
+//        'message' => $settlement->Message,
+//      ];
+//      $url = Url::fromRoute('commerce_payment.checkout.return', ['commerce_order' => $this->getEntity()->getOrder()->id(), 'step' => 'payment']);
+//      $this->buildRedirectForm($form, $form_state, \Drupal::request()->getSchemeAndHttpHost() . $url->toString(), $data, 'get');
+//    }
+//    catch (InvalidPluginDefinitionException $e) {
+//    }
+//    catch (PluginNotFoundException $e) {
+//    }
+//  }
 
 }
