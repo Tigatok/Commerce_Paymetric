@@ -366,6 +366,8 @@ class Paymetric extends OffsitePaymentGatewayBase {
       'city' => $address->getLocality(),
       'country' => $address->getCountryCode(),
       'postal_code' => $address->getPostalCode(),
+      'address_line_1' => $address->getAddressLine1(),
+      'address_line_2' => $address->getAddressLine2(),
     ]);
 
     return $data;
@@ -409,7 +411,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
         'x_first_name' => substr($parameters['first_name'], 0, 50),
         'x_last_name' => substr($parameters['last_name'], 0, 50),
         'x_company' => substr($parameters['organisation_name'], 0, 50),
-        'x_address' => substr($parameters['thoroughfare'], 0, 60),
+        'x_address' => substr($parameters['address_line_1'], 0, 60),
         'x_city' => substr($parameters['locality'], 0, 40),
         'x_state' => substr($parameters['administrative_area'], 0, 40),
         'x_zip' => substr($parameters['postal_code'], 0, 20),
