@@ -395,7 +395,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $address = $billing_profile->get('address')->first();
 
     $data = $this->executeTransaction('1', [
-      'amt' => 0,
+      'amt' => $order->getTotalPrice()->getNumber(),
       'acct' => $payment_details['number'],
       'expdate' => $this->getExpirationDate($payment_details['expiration']),
       'cvv2' => $payment_details['security_code'],
@@ -503,7 +503,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
 
     $xipayTransaction = new PaymetricTransaction();
     // Must send 0 for authorization.
-    $xipayTransaction->Amount = '0.00';
+    $xipayTransaction->Amount = $data['x_total'];
     $xipayTransaction->CardCVV2 = $data['x_card_code'];
     $xipayTransaction->CardExpirationDate = $data['x_exp_date'];
     $xipayTransaction->CardNumber = $data['x_card_num'];
@@ -529,7 +529,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $authorized = $authResponse->Transaction;
     if ($authResponse->Status == STATUS_OK) {
       if ($authorized->StatusCode >= 0) {
-        if ($authResponse->Transaction->ResponseCode == 104) {
+        if ($authResponse->Transaction->ResponseCode == 104 || $authResponse->Transaction->ResponseCode == 100) {
           $messenger->addMessage('The card was authorized successfully.');
         }
       }
