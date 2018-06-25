@@ -2,6 +2,7 @@
 
 namespace Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway;
 
+use CommerceGuys\AuthNet\DataTypes\TransactionRequest;
 use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
@@ -154,6 +155,13 @@ class Paymetric extends OffsitePaymentGatewayBase {
   }
 
   /**
+   * Returns the transaction type.
+   */
+  public function getTransactionType() {
+    return $this->configuration['transaction_type'] ?: '';
+  }
+
+  /**
    * {@inheritdoc}
    */
   public function defaultConfiguration() {
@@ -166,6 +174,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
       'xiintercept_url' => '',
       'xipay_merchantid' => '',
       'credit_card_types' => '',
+      'transaction_type' => TransactionRequest::AUTH_CAPTURE,
     ] + parent::defaultConfiguration();
   }
 
@@ -231,10 +240,43 @@ class Paymetric extends OffsitePaymentGatewayBase {
       '#type' => 'checkboxes',
       '#title' => $this->t('Limit accepted credit cards to the following types'),
       '#description' => t('If you want to limit acceptable card types, you should only select those supported by your merchant account.') . '<br />' . t('If none are checked, any credit card type will be accepted.'),
-      '#options' => ['amex' => $this->t('American Express'), 'discover' => $this->t('Discover'), 'mastercard' => $this->t('Master Card'), 'visa' => $this->t('Visa'), 'dinersclub' => $this->t('Diners Club'), 'jcb' => $this->t('JCB'), 'maestro' => $this->t('Maestro'), 'unionpay' => $this->t('Union Pay')],
+      '#options' => [
+        'amex' => $this->t('American Express'),
+        'discover' => $this->t('Discover'),
+        'mastercard' => $this->t('Master Card'),
+        'visa' => $this->t('Visa'),
+        'dinersclub' => $this->t('Diners Club'),
+        'jcb' => $this->t('JCB'),
+        'maestro' => $this->t('Maestro'),
+        'unionpay' => $this->t('Union Pay'),
+      ],
       '#default_value' => $this->configuration['credit_card_types'],
       // '#default_value' => array('amex', 'discover', 'mastercard', 'visa'),.
       '#required' => TRUE,
+    ];
+
+    $form['transaction_type'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Transaction type'),
+      '#required' => TRUE,
+      '#default_value' => $this->configuration['transaction_type'],
+    ];
+
+    $form['transaction_type']['authorize'] = [
+      '#type' => 'radio',
+      '#title' => $this->t('Authorize'),
+      '#description' => $this->t('Authorize the card only.'),
+    ];
+
+    $form['transaction_type'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Default credit card transaction type'),
+      '#description' => t('The default will be used to process transactions during checkout.'),
+      '#default_value' => $this->configuration['transaction_type'],
+      '#options' => [
+        TransactionRequest::AUTH_ONLY => $this->t('Authorization only (requires manual or automated capture after checkout)'),
+        TransactionRequest::AUTH_CAPTURE => $this->t('Authorization and capture'),
+      ],
     ];
 
     return $form;
@@ -260,14 +302,12 @@ class Paymetric extends OffsitePaymentGatewayBase {
       $this->configuration['xipay_merchantid'] = $values['xipay_merchantid'];
       $card_types = [];
       foreach ($values['credit_card_types'] as $key => $val) {
-        // Echo $key.' :: '.$val .' :: Value type: '.gettype($val).'<br>';
         if ($val !== 0) {
-          // $card_types[] = $key;.
           array_push($card_types, $key);
         }
       }
-      // print_r($card_types);
       $this->configuration['credit_card_types'] = $card_types;
+      $this->configuration['transaction_type'] = $values['transaction_type'];
     }
   }
 
