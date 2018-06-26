@@ -3,3 +3,9 @@ paymetric_payment_error:
   category: commerce_paymetric
   label: 'Payment error'
   template: '<p>Paymetric Error: {{ data }}.</p>'
+
+paymetric_transaction_response:
+  id: paymetric_transaction_response
+  category: commerce_paymetric
+  label: 'Paymetric transaction response'
+  template: '<pre>{{ data }}</pre>'

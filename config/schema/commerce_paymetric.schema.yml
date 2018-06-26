@@ -25,3 +25,6 @@ commerce_payment.commerce_payment_gateway.plugin.paymetric:
     card_types:
       type: string
       label: 'Limit accepted credit cards to the following types'
+    transaction_type:
+      type: radios
+      label: 'Default credit card transaction type'

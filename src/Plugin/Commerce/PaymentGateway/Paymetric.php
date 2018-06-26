@@ -375,7 +375,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
       'city' => $address->getLocality(),
       'country' => $address->getCountryCode(),
       'postal_code' => $address->getPostalCode(),
-    ]);
+    ], $payment);
     return $data;
   }
 
@@ -408,7 +408,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
       'postal_code' => $address->getPostalCode(),
       'address_line_1' => $address->getAddressLine1(),
       'address_line_2' => $address->getAddressLine2(),
-    ]);
+    ], $payment);
 
     return $data;
   }
@@ -429,7 +429,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
    * @return array
    *   The response body data in array format.
    */
-  protected function executeTransaction($transaction_type, array $parameters) {
+  protected function executeTransaction($transaction_type, array $parameters, $payment) {
 
     $ini_array = [];
     $ini_array['XiPay-QA']['paymetric.xipay.url'] = $this->getXIURL();
@@ -457,7 +457,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
         'x_zip' => substr($parameters['postal_code'], 0, 20),
         'x_country' => $parameters['country'],
       ];
-      $response = $this->authorize($ini_array, $data);
+      $response = $this->authorize($ini_array, $data, $payment);
     }
     // 17 == Capture.
     elseif ($transaction_type == 17) {
@@ -472,13 +472,13 @@ class Paymetric extends OffsitePaymentGatewayBase {
         'x_first_name' => substr($parameters['first_name'], 0, 50),
         'x_last_name' => substr($parameters['last_name'], 0, 50),
         'x_company' => substr($parameters['organisation_name'], 0, 50),
-        'x_address' => substr($parameters['thoroughfare'], 0, 60),
+        'x_address' => substr($parameters['address_line_1'], 0, 60),
         'x_city' => substr($parameters['locality'], 0, 40),
         'x_state' => substr($parameters['administrative_area'], 0, 40),
         'x_zip' => substr($parameters['postal_code'], 0, 20),
         'x_country' => $parameters['country'],
       ];
-      $response = $this->capture($ini_array, $data);
+      $response = $this->capture($ini_array, $data, $payment);
     }
     // 10 == Void.
     elseif ($transaction_type == 10) {
@@ -491,7 +491,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
   /**
    * Authorizes a card for payment.
    */
-  public function authorize($ini_array, $data) {
+  public function authorize($ini_array, $data, $payment) {
     if ($ini_array == FALSE) {
       $file_error = "Paymetric ini file not found. Please check the Paymetric directory.";
       throw new PaymentGatewayException($file_error);
@@ -519,8 +519,12 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $xipayTransaction->CardHolderState = $data['x_state'];
     $xipayTransaction->CardHolderZip = $data['x_zip'];
     $xipayTransaction->CardType = ucfirst($data['x_card_type']);
+
     // Authorize the request.
     $authResponse = $XiPay->Authorize($xipayTransaction);
+    $json_response = $authResponse;
+    $json_response->Transaction = (array) $authResponse->Transaction;
+    $payment->getEntity()->getOrder()->set('paymetric_response', json_encode((array)$json_response, TRUE));
 
     /** @var \Drupal\Core\Messenger\Messenger $messenger */
     $messenger = \Drupal::service('messenger');
@@ -540,7 +544,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
   /**
    * Authorizes a card for payment.
    */
-  public function capture($ini_array, $data) {
+  public function capture($ini_array, $data, $payment) {
     if ($ini_array == FALSE) {
       $file_error = "Paymetric ini file not found. Please check the Paymetric directory.";
       throw new PaymentGatewayException($file_error);
