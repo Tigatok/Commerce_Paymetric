@@ -21,13 +21,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Provides the Paymetric payment gateway.
+ * Provides the Paymetric offsite payment gateway.
+ *
  * We make it an offsite payment gateway base because
  * we don't want to be responsible for keeping the card.
  *
  * @CommercePaymentGateway(
- *   id = "paymetric",
- *   label = "Paymetric",
+ *   id = "paymetric_offsite_payment_gateway",
+ *   label = "Paymetric - Offsite payment gateway",
  *   display_label = "Credit Card",
  *   forms = {
  *     "offsite-payment" = "Drupal\commerce_paymetric\PluginForm\PaymetricOffsiteCheckoutForm",
@@ -38,7 +39,7 @@ use Symfony\Component\HttpFoundation\Request;
  *   },
  * )
  */
-class Paymetric extends OffsitePaymentGatewayBase {
+class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
 
   /**
    * Paymetric test API URL.
@@ -524,7 +525,7 @@ class Paymetric extends OffsitePaymentGatewayBase {
     $authResponse = $XiPay->Authorize($xipayTransaction);
     $json_response = $authResponse;
     $json_response->Transaction = (array) $authResponse->Transaction;
-    $payment->getEntity()->getOrder()->set('paymetric_response', json_encode((array)$json_response, TRUE));
+    $payment->getEntity()->getOrder()->set('paymetric_response', json_encode((array) $json_response, TRUE));
 
     /** @var \Drupal\Core\Messenger\Messenger $messenger */
     $messenger = \Drupal::service('messenger');
