@@ -1,12 +1,5 @@
 <?php
 
-//
-//echo 'Base class for all XiPay classes ';
-//encapsulating baisic property handling plus info items 
-//
-//include_once('./sites/all/modules/commerce_paymetric/includes/lib/paymetric/BaseCore.php');
-//include_once('BaseCore.php');
-
 namespace Drupal\commerce_paymetric\lib;
 
 use Drupal\commerce_paymetric\lib\BaseCore;

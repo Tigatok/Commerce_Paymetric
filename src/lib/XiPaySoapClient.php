@@ -2,7 +2,7 @@
 
 //
 //echo 'NTLMSoapClient.php is a 3rd party workaround for NTLM authentication. ';
-//one must use this or similar techiques in order to make PHP Soap Extention 
+//one must use this or similar techiques in order to make PHP Soap Extention
 //work against .NET Web Services.
 //
 
@@ -224,20 +224,14 @@ class XiPaySoapClient extends NTLMSoapClient implements ContainerAwareInterface,
    * {@inheritdoc}
    */
   public function registerWrapper($scheme, $class, $type) {
-    echo 'registerWrapper called... <br>';
-    //echo 'Type is... '.$type.'<br>'; // Default flag is 0
-    //echo 'What is SWI::LOCAL? '.StreamWrapperInterface::LOCAL.'<br>'; // 1
-      
+
     if (in_array($scheme, stream_get_wrappers(), TRUE)) {
-      echo 'Unregister "'.$scheme.'"...<br>';
       stream_wrapper_unregister($scheme);
     }
     if (($type & StreamWrapperInterface::LOCAL) == StreamWrapperInterface::LOCAL) {
-      echo 'Register stream...<br>';
       stream_wrapper_register($scheme, $class);
     }
     else {
-      echo 'Register stream with STREAM_IS_URL...<br>';
       stream_wrapper_register($scheme, $class, STREAM_IS_URL);
     }
 
@@ -249,23 +243,10 @@ class XiPaySoapClient extends NTLMSoapClient implements ContainerAwareInterface,
     $this->wrappers[StreamWrapperInterface::ALL][$scheme] = $info;
       
     if (($type & StreamWrapperInterface::WRITE_VISIBLE) == StreamWrapperInterface::WRITE_VISIBLE) {
-      //echo 'Is this called?<br>'; // It is not
       $this->wrappers[StreamWrapperInterface::WRITE_VISIBLE][$scheme] = $info;
     }
   }
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-//
-    //Replace with your own username and password for logging in XiPay Web Service 
-    //
     protected $user;
     protected $password;
     protected $serviceURL; 
@@ -282,50 +263,14 @@ class XiPaySoapClient extends NTLMSoapClient implements ContainerAwareInterface,
         $this->serviceURL = $XiPayServiceURL;
         $this->user = "paymetric\\".$XiPayUser; 
         $this->password = $XiPayUserPassword;
-        
-        
-        
-       echo 'Construction begins here...v3<br>';
-        
-        // Display wrappers
-        //var_dump(stream_get_wrappers());
-        //array(13) { [0]=> string(5) "https" [1]=> string(4) "ftps" [2]=> string(13) "compress.zlib" [3]=> string(14) "compress.bzip2" [4]=> string(3) "php" [5]=> string(4) "file" [6]=> string(4) "glob" [7]=> string(4) "data" [8]=> string(3) "ftp" [9]=> string(4) "phar" [10]=> string(3) "zip" [11]=> string(6) "public" [12]=> string(9) "temporary" }
-        // NO http protocol?! // Tried https and it didn't work
-        
-        /*//Double-check protocol exists 
-        $existed = in_array("http", stream_get_wrappers());
-        
-        if ($existed) {
-            echo 'PROTOCOL EXISTS!! '.$this->serviceURL." :: ".$this->user." :: ".$this->password.'<br>';
-            stream_wrapper_unregister("http");
-        }
-        // Verified: PROTOCOL EXISTS!!*/
-        
-        
-        //unregister the current HTTP wrapper
-        /*$testee = stream_wrapper_unregister('http');
-        echo $testee.'<br>'; // Returns 1 so the wrapper is unregistered */
-        //stream_wrapper_unregister('http');
-        
+
         
         $this->unregister();
-        echo 'Wrapper successfully unregistered...<br>';
-        
-        
-        //register the new HTTP wrapper
-        //Returns TRUE on success or FALSE on failure. 
-        //stream_wrapper_register() will return FALSE if the protocol already has a handler.
-        //stream_wrapper_register('http', 'XiPaySoapClient', STREAM_IS_URL) or die("----Failed to register XIPaySoapClient stream protocol -v3"); //FAILS! 
 
-        //stream_wrapper_register('http', 'XiPaySoapClient') or die("----Failed to register XIPaySoapClient stream protocol -v7"); //FAILS! 
-        
         $this->registerWrapper('http', 'Drupal\commerce_paymetric\lib\XiPaySoapClient', STREAM_IS_URL);
 
         //SoapClient without WSDL
         parent::__construct(NULL, array("location" => $this->serviceURL, "uri" => $this->serviceURL));
-        
-        
-        
     }
 
     //
@@ -375,7 +320,6 @@ class XiPaySoapClient extends NTLMSoapClient implements ContainerAwareInterface,
             $th = $xmlResponse->packets->ITransactionHeader;
             foreach(get_object_vars($th) as $key => $value)
             {
-                //echo "$key = $value\n";
                 $touchedValue = $value;
                 if (is_object($touchedValue)) $touchedValue = "";
                 
@@ -664,8 +608,6 @@ class XiPaySoapClient extends NTLMSoapClient implements ContainerAwareInterface,
       
       //write to console 
       if ($handle == 0){
-         echo $timestamp. " " .$message. "\r\n";
-         echo $traceData . "\r\n\r\n";
       }
     }
 };

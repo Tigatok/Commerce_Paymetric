@@ -1,10 +1,7 @@
 <?php
 //
-//echo 'XiPay transaction class ';
 //All properties are per XiPay WS WSDL
 //
-//include_once('./sites/all/modules/commerce_paymetric/includes/lib/paymetric/BaseClass.php');
-//include_once('BaseClass.php');
 
 namespace Drupal\commerce_paymetric\lib;
 

@@ -17,8 +17,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-//echo 'NTMLSoapClient LOADED! ';
-
 namespace Drupal\commerce_paymetric\lib;
 use \SoapClient;
 
@@ -42,7 +40,6 @@ class NTLMStream {
 	 * @return unknown
 	 */
 	public function stream_open($path, $mode, $options, $opened_path) {
-		echo "[NTLMStream::stream_open] $path , mode=$mode \n";
 		$this->path = $path;
 		$this->mode = $mode;
 		$this->options = $options;
@@ -58,7 +55,6 @@ class NTLMStream {
 	 *
 	 */
 	public function stream_close() {
-		echo "[NTLMStream::stream_close] \n";
 		curl_close($this->ch);
 	}
 
@@ -69,7 +65,6 @@ class NTLMStream {
 	 * @return content from pos to count
 	 */
 	public function stream_read($count) {
-		echo "[NTLMStream::stream_read] $count \n";
 		if(strlen($this->buffer) == 0) {
 			return false;
 		}
@@ -87,7 +82,6 @@ class NTLMStream {
 	 * @return content from pos to count
 	 */
 	public function stream_write($data) {
-		echo "[NTLMStream::stream_write] \n";
 		if(strlen($this->buffer) == 0) {
 			return false;
 		}
@@ -100,14 +94,11 @@ class NTLMStream {
 	 * @return true if eof else false
 	 */
 	public function stream_eof() {
-		echo "[NTLMStream::stream_eof] ";
 
 		if($this->pos > strlen($this->buffer)) {
-			echo "true \n";
 			return true;
 		}
 
-		echo "false \n";
 		return false;
 	}
 
@@ -115,7 +106,6 @@ class NTLMStream {
 	 * @return int the position of the current read pointer
 	 */
 	public function stream_tell() {
-		echo "[NTLMStream::stream_tell] \n";
 		return $this->pos;
 	}
 
@@ -123,7 +113,6 @@ class NTLMStream {
 	 * Flush stream data
 	 */
 	public function stream_flush() {
-		echo "[NTLMStream::stream_flush] \n";
 		$this->buffer = null;
 		$this->pos = null;
 	}
@@ -134,7 +123,6 @@ class NTLMStream {
 	 * @return array stat information
 	 */
 	public function stream_stat() {
-		echo "[NTLMStream::stream_stat] \n";
 
 		$this->createBuffer($this->path);
 		$stat = array(
@@ -149,7 +137,6 @@ class NTLMStream {
 	 * @return array stat information
 	 */
 	public function url_stat($path, $flags) {
-		echo "[NTLMStream::url_stat] \n";
 		$this->createBuffer($path);
 		$stat = array(
 			'size' => strlen($this->buffer),
@@ -168,15 +155,12 @@ class NTLMStream {
 			return;
 		}
 
-		echo "[NTLMStream::createBuffer] create buffer from : $path\n";
 		$this->ch = curl_init($path);
 		curl_setopt($this->ch, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($this->ch, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_1_1);
 		curl_setopt($this->ch, CURLOPT_HTTPAUTH, CURLAUTH_NTLM);
 		curl_setopt($this->ch, CURLOPT_USERPWD, $this->user.':'.$this->password);
-		echo $this->buffer = curl_exec($this->ch);
 
-		echo "[NTLMStream::createBuffer] buffer size : ".strlen($this->buffer)."bytes\n";
 		$this->pos = 0;
 
 	}

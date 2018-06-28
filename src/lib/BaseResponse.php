@@ -1,8 +1,5 @@
 <?php
 
-//
-//echo 'Base response object with status code and message ';
-//
 namespace Drupal\commerce_paymetric\lib;
 
 define("STATUS_OK", 0);             //Call successfully made to server and get a response, 

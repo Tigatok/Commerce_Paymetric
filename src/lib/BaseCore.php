@@ -1,10 +1,5 @@
 <?php
 
-//
-//echo 'Base core for all XiPay classes ';
-//encapsulating basic property handling plus info items 
-//
-
 namespace Drupal\commerce_paymetric\lib;
 
 class BaseCore
@@ -66,13 +61,8 @@ class BaseCore
         
         //enforce the type constraints 
         $typeCheck = "\$typeMatch = " . $this->PropertyList[$key] . ";";
-        //echo $typeCheck ;
-        
+
         eval($typeCheck);
-        
-        //echo $typeCheck;
-        //echo $typeMatch;
-        //echo "\n";
         
         if ($typeMatch <> 1){
             throw new Exception("BaseCore::Set - Value $key not match its intended type. Evaluation of $typeCheck failed.");
