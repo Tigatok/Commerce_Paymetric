@@ -525,7 +525,9 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
     $authResponse = $XiPay->Authorize($xipayTransaction);
     $json_response = $authResponse;
     $json_response->Transaction = (array) $authResponse->Transaction;
-    $payment->getEntity()->getOrder()->set('paymetric_response', json_encode((array) $json_response, TRUE));
+    $json_encode = json_encode((array) $json_response, TRUE);
+    $json_encode = str_replace("\\u0000", "", $json_encode);
+    $payment->getEntity()->getOrder()->set('paymetric_response', $json_encode);
 
     /** @var \Drupal\Core\Messenger\Messenger $messenger */
     $messenger = \Drupal::service('messenger');
