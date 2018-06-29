@@ -2,6 +2,8 @@
 
 namespace Drupal\commerce_paymetric\lib;
 
+use Exception;
+
 class BaseCore
 {
     protected $PropertyList; 
@@ -11,7 +13,7 @@ class BaseCore
     //
     protected function &GetPropertyList()
     {
-        return $PropertyList; //pure virtual 
+        return $PropertyList; //pure virtual
     }
     
     //
@@ -64,7 +66,7 @@ class BaseCore
 
         eval($typeCheck);
         
-        if ($typeMatch <> 1){
+        if ($typeCheck <> 1){
             throw new Exception("BaseCore::Set - Value $key not match its intended type. Evaluation of $typeCheck failed.");
         }
         
