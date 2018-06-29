@@ -12,6 +12,7 @@
 
 
 namespace Drupal\commerce_paymetric\lib;
+use Exception;
 use \SimpleXMLElement;
 
 use Symfony\Component\DependencyInjection\ContainerAwareInterface;
