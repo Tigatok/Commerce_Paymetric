@@ -137,10 +137,10 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
 
     try {
       $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
-      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\Paymetric $plugin */
+      /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\PaymetricOffsitePaymentGateway $plugin */
       $plugin = $this->plugin;
       $authorization = $plugin->authorizePaymentMethod($this, $payment_details);
-      $transaction_id = $authorization->TransactionID;
+      $transaction_id = $authorization['*TransactionID'];
       $batch_id = $authorization->BatchID;
       $form_state->set('transaction_id', $transaction_id);
       $form_state->set('batch_id', $batch_id);
@@ -169,6 +169,10 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
     }
     catch (\Exception $e) {
       $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card. Please try again later.');
+      $form_state->setError($form['payment_details']['number'], $e->getMessage());
+      $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+        'data' => $e->getMessage(),
+      ])->save();
       return FALSE;
     }
     return TRUE;
