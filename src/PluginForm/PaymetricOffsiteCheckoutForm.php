@@ -119,15 +119,9 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
   }
 
   /**
-   * Do card authorization here?
+   * {@inheritdoc}
    *
-   * @param array $form
-   *   The form array.
-   * @param \Drupal\Core\Form\FormStateInterface $form_state
-   *   The form state object.
-   *
-   * @return bool
-   *   If the authorization succeeded or not.
+   * @throws \Drupal\Core\Entity\EntityStorageException
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
     $this->validateCreditCardForm($form['payment_details'], $form_state);
@@ -135,6 +129,8 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       return FALSE;
     }
 
+    /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
+    $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
     try {
       $payment_details = $form_state->getValue('payment_process')['offsite_payment']['payment_details'];
       /** @var \Drupal\commerce_paymetric\Plugin\Commerce\PaymentGateway\PaymetricOffsitePaymentGateway $plugin */
@@ -144,8 +140,6 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
       $batch_id = $authorization->BatchID;
       $form_state->set('transaction_id', $transaction_id);
       $form_state->set('batch_id', $batch_id);
-      /** @var \Drupal\commerce_log\LogStorageInterface $commerce_log */
-      $commerce_log = \Drupal::entityTypeManager()->getStorage('commerce_log');
       $response_code = $authorization->ResponseCode;
       $status_code = $authorization->StatusCode;
       if ($authorization instanceof PaymetricTransaction) {
@@ -169,7 +163,6 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
     }
     catch (\Exception $e) {
       $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card. Please try again later.');
-      $form_state->setError($form['payment_details']['number'], $e->getMessage());
       $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
         'data' => $e->getMessage(),
       ])->save();

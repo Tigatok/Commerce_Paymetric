@@ -397,7 +397,7 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
     $address = $billing_profile->get('address')->first();
 
     $data = $this->executeTransaction('1', [
-      'amt' => $order->getTotalPrice()->getNumber(),
+      'amt' => (double) $order->getTotalPrice()->getNumber(),
       'acct' => $payment_details['number'],
       'expdate' => $this->getExpirationDate($payment_details['expiration']),
       'cvv2' => $payment_details['security_code'],
