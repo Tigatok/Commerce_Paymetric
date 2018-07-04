@@ -152,6 +152,11 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
           ])->save();
           return FALSE;
         }
+        else {
+          $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_default', [
+            'data' => t('The transaction has been successfully authorized.'),
+          ])->save();
+        }
       }
       else {
         // Saves to the order.

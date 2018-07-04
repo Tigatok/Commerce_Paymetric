@@ -495,6 +495,7 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
 
   /**
    * Authorizes a card for payment.
+   * @throws \Drupal\Core\Entity\EntityStorageException
    */
   public function authorize($ini_array, $data, $payment) {
     if ($ini_array == FALSE) {

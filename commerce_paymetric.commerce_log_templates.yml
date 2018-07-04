@@ -1,3 +1,9 @@
+paymetric_default:
+  id: paymetric_default
+  category: commerce_paymetric
+  label: 'Paymetric'
+  template: '<p>Paymetric: {{ data }}. </p>'
+
 paymetric_payment_error:
   id: paymetric_payment_error
   category: commerce_paymetric

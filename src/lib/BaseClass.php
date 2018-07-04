@@ -3,6 +3,7 @@
 namespace Drupal\commerce_paymetric\lib;
 
 use Drupal\commerce_paymetric\lib\BaseCore;
+use Exception;
 
 class BaseClass extends BaseCore
 {
