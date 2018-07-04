@@ -376,6 +376,7 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
       'city' => $address->getLocality(),
       'country' => $address->getCountryCode(),
       'postal_code' => $address->getPostalCode(),
+      'card_type' => $payment_details['type'],
     ], $payment);
     return $data;
   }
@@ -409,6 +410,7 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
       'postal_code' => $address->getPostalCode(),
       'address_line_1' => $address->getAddressLine1(),
       'address_line_2' => $address->getAddressLine2(),
+      'card_type' => $payment_details['type'],
     ], $payment);
 
     return $data;
@@ -451,12 +453,13 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
         'x_currency_code' => "USD",
         'x_first_name' => substr($parameters['first_name'], 0, 50),
         'x_last_name' => substr($parameters['last_name'], 0, 50),
-        'x_company' => substr($parameters['organisation_name'], 0, 50),
+        'x_company' => substr($parameters['company'], 0, 50),
         'x_address' => substr($parameters['address_line_1'], 0, 60),
-        'x_city' => substr($parameters['locality'], 0, 40),
+        'x_city' => substr($parameters['city'], 0, 40),
         'x_state' => substr($parameters['administrative_area'], 0, 40),
         'x_zip' => substr($parameters['postal_code'], 0, 20),
         'x_country' => $parameters['country'],
+        'x_card_type' => $parameters['card_type'],
       ];
       $response = $this->authorize($ini_array, $data, $payment);
     }
@@ -472,12 +475,13 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
         'x_batch_id' => '1',
         'x_first_name' => substr($parameters['first_name'], 0, 50),
         'x_last_name' => substr($parameters['last_name'], 0, 50),
-        'x_company' => substr($parameters['organisation_name'], 0, 50),
+        'x_company' => substr($parameters['company'], 0, 50),
         'x_address' => substr($parameters['address_line_1'], 0, 60),
-        'x_city' => substr($parameters['locality'], 0, 40),
+        'x_city' => substr($parameters['city'], 0, 40),
         'x_state' => substr($parameters['administrative_area'], 0, 40),
         'x_zip' => substr($parameters['postal_code'], 0, 20),
         'x_country' => $parameters['country'],
+        'x_card_type' => $parameters['card_type'],
       ];
       $response = $this->capture($ini_array, $data, $payment);
     }
@@ -523,8 +527,8 @@ class PaymetricOffsitePaymentGateway extends OffsitePaymentGatewayBase {
 
     // Authorize the request.
     $authResponse = $XiPay->Authorize($xipayTransaction);
-    $json_response = $authResponse;
-    $json_response->Transaction = (array) $authResponse->Transaction;
+    $json_response = clone $authResponse;
+    $json_response->Transaction = (array) $json_response->Transaction;
     $json_encode = json_encode((array) $json_response, TRUE);
     $json_encode = str_replace("\\u0000", "", $json_encode);
     $payment->getEntity()->getOrder()->set('paymetric_response', $json_encode);

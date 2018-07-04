@@ -170,6 +170,9 @@ class PaymetricOffsiteCheckoutForm extends PaymentOffsiteForm {
     catch (\Exception $e) {
       $form_state->setError($form['payment_details']['number'], 'There was an error processing your credit card. Please try again later.');
       $form_state->setError($form['payment_details']['number'], $e->getMessage());
+      $commerce_log->generate($this->getEntity()->getOrder(), 'paymetric_payment_error', [
+        'data' => $e->getMessage(),
+      ])->save();
       return FALSE;
     }
     return TRUE;
